@@ -207,6 +207,18 @@ class EditWorkspaceViewModel(
     fun setFadeOutMs(value: Long) = mutate { it.copy(fadeOutMs = value.coerceAtLeast(0L)) }
     fun setLyricOffsetMs(value: Long) = mutate { it.copy(lyricOffsetMs = value) }
 
+    /** 重置参数：只回数值参数，保留用户选中的区间和分割点。 */
+    fun resetParams() = mutate {
+        it.copy(
+            mode = EditMode.KEEP_SELECTED,
+            splitMs = 0L,
+            fadeInMs = 0L,
+            fadeOutMs = 0L,
+            gainDb = 0f,
+            lyricOffsetMs = 0L,
+        )
+    }
+
     fun toggleJoinedTrack(trackId: String) {
         if (trackId !in mutableUiState.value.joinedTrackIds &&
             mutableUiState.value.joinedTrackIds.size >= MAX_JOIN_SOURCES

@@ -52,6 +52,7 @@ import cn.qishui.tool.ui.components.InfoHintAction
 import cn.qishui.tool.ui.components.InfoHintBox
 import cn.qishui.tool.ui.components.TopSnackbarHost
 import cn.qishui.tool.ui.components.DeleteSelectionSheet
+import cn.qishui.tool.ui.components.ParamCard
 import cn.qishui.tool.ui.components.PlainCard
 import cn.qishui.tool.ui.components.PrimaryButton
 import cn.qishui.tool.ui.components.QishuiFieldShape
@@ -345,12 +346,11 @@ fun EditWorkspaceScreen(
                     }
                 }
 
-                PlainCard(modifier = Modifier.fillMaxWidth()) {
-                    Column(
-                        modifier = Modifier.padding(14.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        Text(operation.card().label, style = MaterialTheme.typography.titleMedium)
+                ParamCard(
+                    title = "${operation.card().label}设置",
+                    onReset = viewModel::resetParams,
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         when (operation) {
                             EditOperation.TRIM -> {
                                 LongField("起始 (ms)", state.startMs) {
@@ -380,7 +380,7 @@ fun EditWorkspaceScreen(
                                         )
                                     },
                                 )
-                                LongField("分割点((ms)", state.splitMs, viewModel::setSplitMs)
+                                LongField("分割点 (ms)", state.splitMs, viewModel::setSplitMs)
                                 PrimaryButton(
                                     text = "添加分割点",
                                     onClick = viewModel::addSplitPoint,
