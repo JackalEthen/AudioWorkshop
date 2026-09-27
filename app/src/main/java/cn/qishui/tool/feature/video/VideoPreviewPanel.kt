@@ -169,7 +169,7 @@ fun VideoPreviewPanel(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    PlayIconButton(
+                    PlayCircleButton(
                         playing = isPlaying,
                         onClick = { if (isPlaying) player.pause() else player.play() },
                     )
@@ -222,9 +222,10 @@ fun VideoPreviewPanel(
 }
 
 @Composable
-private fun PlayIconButton(playing: Boolean, onClick: () -> Unit) {
+fun PlayCircleButton(playing: Boolean, onClick: () -> Unit, enabled: Boolean = true) {
     Surface(
         onClick = onClick,
+        enabled = enabled,
         shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.primaryContainer,
         contentColor = MaterialTheme.colorScheme.onPrimaryContainer,

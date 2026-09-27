@@ -207,6 +207,10 @@ class EditWorkspaceViewModel(
     fun setFadeOutMs(value: Long) = mutate { it.copy(fadeOutMs = value.coerceAtLeast(0L)) }
     fun setLyricOffsetMs(value: Long) = mutate { it.copy(lyricOffsetMs = value) }
 
+    fun setStartMs(value: Long) = mutate { it.copy(startMs = value.coerceIn(0L, it.endMs)) }
+
+    fun setEndMs(value: Long) = mutate { it.copy(endMs = value.coerceIn(it.startMs, it.endMs)) }
+
     /** 重置参数：只回数值参数，保留用户选中的区间和分割点。 */
     fun resetParams() = mutate {
         it.copy(

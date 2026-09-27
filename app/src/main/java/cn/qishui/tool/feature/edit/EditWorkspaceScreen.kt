@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -38,6 +39,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cn.qishui.tool.domain.model.EditMode
@@ -60,6 +62,8 @@ import cn.qishui.tool.ui.components.QishuiTopBar
 import cn.qishui.tool.ui.components.ScreenScroll
 import cn.qishui.tool.ui.components.SecondaryButton
 import cn.qishui.tool.ui.components.SectionHeader
+import cn.qishui.tool.ui.components.TimeStepperField
+import cn.qishui.tool.feature.video.PlayCircleButton
 import cn.qishui.tool.ui.components.SegmentedControl
 import cn.qishui.tool.ui.components.SelectBox
 import cn.qishui.tool.ui.components.SelectionActionChip
@@ -254,14 +258,23 @@ fun EditWorkspaceScreen(
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text(
-                                text = "波形",
-                                modifier = Modifier.weight(1f),
-                                style = MaterialTheme.typography.titleMedium,
-                            )
-                            Text(
-                                text = "${formatMs(state.startMs)} - ${formatMs(state.endMs)}",
+                                text = "已选:${formatMs(state.endMs - state.startMs)}",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.weight(1f),
+                            )
+                            Text(
+                                text = "播放:${formatMs(playback.positionMs)}",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.weight(1f),
+                            )
+                            Text(
+                                text = "全部:${formatMs(playback.durationMs)}",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.End,
+                                modifier = Modifier.weight(1f),
                             )
                         }
                         when (val waveform = state.waveform) {
@@ -308,6 +321,52 @@ fun EditWorkspaceScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
+                        if (operation == EditOperation.TRIM) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            ) {
+                                TimeStepperField(
+                                    label = "开始:${formatMs(state.startMs)}",
+                                    minutes = (state.startMs / 60_000L).toInt(),
+                                    seconds = ((state.startMs / 1000L) % 60L).toInt(),
+                                    millis = (state.startMs % 1000L).toInt(),
+                                    onMinutes = { viewModel.setStartMs(it * 60_000L) },
+                                    onSeconds = { viewModel.setStartMs(it * 1000L) },
+                                    onMillis = { viewModel.setStartMs(it.toLong()) },
+                                    modifier = Modifier.weight(1f),
+                                )
+                                TimeStepperField(
+                                    label = "结束:${formatMs(state.endMs)}",
+                                    minutes = (state.endMs / 60_000L).toInt(),
+                                    seconds = ((state.endMs / 1000L) % 60L).toInt(),
+                                    millis = (state.endMs % 1000L).toInt(),
+                                    onMinutes = { viewModel.setEndMs(it * 60_000L) },
+                                    onSeconds = { viewModel.setEndMs(it * 1000L) },
+                                    onMillis = { viewModel.setEndMs(it.toLong()) },
+                                    modifier = Modifier.weight(1f),
+                                )
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                SecondaryButton(
+                                    text = "试听时间设置为开始",
+                                    onClick = { viewModel.setStartMs(playback.positionMs) },
+                                    modifier = Modifier.weight(1f),
+                                    contentPadding = PaddingValues(horizontal = 4.dp),
+                                    textStyle = MaterialTheme.typography.labelMedium,
+                                )
+                                SecondaryButton(
+                                    text = "试听时间设置为结束",
+                                    onClick = { viewModel.setEndMs(playback.positionMs) },
+                                    modifier = Modifier.weight(1f),
+                                    contentPadding = PaddingValues(horizontal = 4.dp),
+                                    textStyle = MaterialTheme.typography.labelMedium,
+                                )
+                            }
+                        }
                     }
                 }
 
@@ -320,26 +379,36 @@ fun EditWorkspaceScreen(
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
-                            SecondaryButton(
-                                text = if (playback.isPlaying) "暂停" else "播放",
-                                onClick = viewModel::togglePlay,
+                            PlayCircleButton(
+                                playing = playback.isPlaying,
                                 enabled = state.track?.localPath != null,
-                                modifier = Modifier.weight(1f),
+                                onClick = viewModel::togglePlay,
                             )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Text(
-                                text = "${formatMs(playback.positionMs)} / ${formatMs(playback.durationMs)}",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
+                            Column(modifier = Modifier.weight(1f)) {
+                                Slider(
+                                    value = playback.positionMs.toFloat(),
+                                    onValueChange = { viewModel.seekTo(it.toLong()) },
+                                    valueRange = 0f..playback.durationMs.coerceAtLeast(1L).toFloat(),
+                                    enabled = playback.durationMs > 0L,
+                                )
+                                Row(modifier = Modifier.fillMaxWidth()) {
+                                    Text(
+                                        text = formatMs(playback.positionMs),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                    Text(
+                                        text = formatMs(playback.durationMs),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        textAlign = TextAlign.End,
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                }
+                            }
                         }
-                        Slider(
-                            value = playback.positionMs.toFloat(),
-                            onValueChange = { viewModel.seekTo(it.toLong()) },
-                            valueRange = 0f..playback.durationMs.coerceAtLeast(1L).toFloat(),
-                            enabled = playback.durationMs > 0L,
-                        )
                     }
                 }
 
@@ -514,6 +583,13 @@ fun EditWorkspaceScreen(
                     }
                 }
 
+                Spacer(modifier = Modifier.height(4.dp))
+                PrimaryButton(
+                    text = if (state.isSaving) "保存中" else "保存",
+                    onClick = viewModel::save,
+                    enabled = state.canSave && !state.isSaving,
+                    modifier = Modifier.fillMaxWidth(),
+                )
                 SectionHeader(title = "导出")
                 PlainCard(modifier = Modifier.fillMaxWidth()) {
                     Column(

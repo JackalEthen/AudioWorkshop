@@ -18,6 +18,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
@@ -48,8 +49,9 @@ fun WaveformCanvas(
     }
 
     val waveColor = MaterialTheme.colorScheme.primary
-    val dimColor = Color.Black.copy(alpha = 0.45f)
-    val handleColor = MaterialTheme.colorScheme.onPrimary
+    val trackColor = Color(0xFF3A3550)
+    val dimColor = Color.Black.copy(alpha = 0.55f)
+    val handleColor = MaterialTheme.colorScheme.primary
     val playheadColor = MaterialTheme.colorScheme.tertiary
 
     Canvas(
@@ -111,22 +113,47 @@ fun WaveformCanvas(
     ) {
         val width = size.width
         if (width <= 0f) return@Canvas
+        // DrawScope 默认不裁剪，波形会画到画布外，先夹住
+        clipRect(left = 0f, top = 0f, right = width, bottom = size.height) {
+        // 深色底 + 圆角，选中区才对比得出来
+        drawRoundRect(
+            color = trackColor,
+            size = size,
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(8.dp.toPx()),
+        )
         drawPeaks(peaks, waveColor)
         val startX = WaveformGeometry.timeToX(selection.startUs, durationUs, width)
         val endX = WaveformGeometry.timeToX(selection.endUs, durationUs, width)
+        // 选区外压暗
         drawRect(color = dimColor, size = Size(startX.coerceIn(0f, width), size.height))
         drawRect(
             color = dimColor,
             topLeft = Offset(endX.coerceIn(0f, width), 0f),
             size = Size((width - endX).coerceAtLeast(0f), size.height),
         )
+        // 选区两端的手柄：竖线 + 顶部圆点 + 底部圆点
+        drawHandle(startX, handleColor)
+        drawHandle(endX, handleColor)
         val playheadX = WaveformGeometry.timeToX(positionUs, durationUs, width)
         drawRect(
             color = playheadColor,
             topLeft = Offset(playheadX.coerceIn(0f, (width - PLAYHEAD_WIDTH_PX).coerceAtLeast(0f)), 0f),
             size = Size(PLAYHEAD_WIDTH_PX, size.height),
         )
+        }
     }
+}
+
+private fun DrawScope.drawHandle(x: Float, color: Color) {
+    val cx = x.coerceIn(HANDLE_DOT_R, size.width - HANDLE_DOT_R)
+    drawLine(
+        color = color,
+        start = Offset(cx, 0f),
+        end = Offset(cx, size.height),
+        strokeWidth = HANDLE_LINE_PX,
+    )
+    drawCircle(color = color, radius = HANDLE_DOT_R, center = Offset(cx, HANDLE_DOT_R))
+    drawCircle(color = color, radius = HANDLE_DOT_R, center = Offset(cx, size.height - HANDLE_DOT_R))
 }
 
 @Composable
@@ -178,5 +205,7 @@ private fun DrawScope.drawPeaks(peaks: WaveformPeaks, waveColor: Color) {
 private val CANVAS_HEIGHT = 120.dp
 private val HANDLE_TOUCH_TARGET = 48.dp
 private const val HANDLE_WIDTH_PX = 3f
+private const val HANDLE_DOT_R = 7f
+private const val HANDLE_LINE_PX = 2f
 private const val PLAYHEAD_WIDTH_PX = 3f
 private const val MIN_BAR_PX = 2f
