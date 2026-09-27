@@ -128,5 +128,7 @@ internal fun containerNameOf(mime: String?): String? = when (mime?.substringAfte
     "flac" -> "flac"
     "mp4", "m4a" -> "m4a"
     "aac", "aacp" -> "aac"
+    "opus" -> "opus"
+    "ogg" -> "ogg"
     else -> mime?.substringAfter('/')?.removePrefix("x-")?.takeIf(String::isNotBlank)
 }

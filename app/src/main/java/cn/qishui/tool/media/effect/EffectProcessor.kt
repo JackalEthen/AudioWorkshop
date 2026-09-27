@@ -25,6 +25,11 @@ class EffectProcessor(
         if (definition.multiTrack && sources.size < 2) {
             return Result.failure(IllegalArgumentException("「${definition.label}」至少需要两首歌"))
         }
+        // RNNoise 状态机有上下文，进程内复用一份，省掉每次重新初始化
+        val rnnoise = if (definition.needsRnnoise) sharedRnnoise() else null
+        if (definition.needsRnnoise && rnnoise?.isReady != true) {
+            return Result.failure(IllegalStateException("降噪模型初始化失败"))
+        }
         return runCatching {
             val buffers = ArrayList<PcmBuffer>(sources.size)
             sources.forEachIndexed { index, file ->
@@ -47,7 +52,11 @@ class EffectProcessor(
             }
 
             onProgress(sources.size.toFloat() / (sources.size + 1))
-            val processed = definition.apply(buffers, values)
+            val processed = PcmEffects.applyRange(
+                buffer = source,
+                startUs = (values["startSec"] ?: 0f).toLong() * MICROS_PER_SECOND,
+                endUs = (values["endSec"] ?: 0f).toLong() * MICROS_PER_SECOND,
+            ) { region -> definition.apply(listOf(region), values, rnnoise) }
             onProgress(0.95f)
 
             val target = outputFile(definition.id)
@@ -57,6 +66,12 @@ class EffectProcessor(
             target
         }
     }
+
+    private fun sharedRnnoise(): RnnoiseBridge? = runCatching {
+        synchronized(this) {
+            cachedRnnoise ?: RnnoiseBridge.create().also { cachedRnnoise = it }
+        }
+    }.getOrNull()
 
     /** 上一次处理的产物，用完删掉，别把缓存塞满。 */
     fun clearOutput() {
@@ -69,7 +84,10 @@ class EffectProcessor(
     private fun outputDirectory(): File =
         File(context.cacheDir, "effect-output").apply { if (!exists()) mkdirs() }
 
+    private var cachedRnnoise: RnnoiseBridge? = null
+
     private companion object {
+        const val MICROS_PER_SECOND = 1_000_000L
         val SUPPORTED_RATES = setOf(44_100, 48_000)
     }
 }

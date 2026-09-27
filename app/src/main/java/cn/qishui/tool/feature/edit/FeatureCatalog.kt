@@ -22,9 +22,10 @@ data class FeatureEntry(
     @DrawableRes val icon: Int,
     val operation: EditOperation? = null,
     val effectId: String? = null,
+    val videoTool: String? = null,
 ) {
     val isReady: Boolean
-        get() = operation != null || effectId != null
+        get() = operation != null || effectId != null || videoTool != null
 }
 
 /** 一张卡片塞 4 个，剩余的单独成卡，和参考图一致。 */
@@ -65,7 +66,7 @@ val FeatureCatalog: List<FeatureEntry> = listOf(
     entry("reverb", "混响", FeatureGroup.EFFECT, R.drawable.ic_sparkles, effectId = "reverb"),
 
     // 视频处理
-    entry("video_audio", "视频提取音频", FeatureGroup.VIDEO, R.drawable.ic_film),
+    entry("video_audio", "视频提取音频", FeatureGroup.VIDEO, R.drawable.ic_film, videoTool = "extract_audio"),
     entry("av_mux", "音/视频合成", FeatureGroup.VIDEO, R.drawable.ic_clapperboard),
     entry("video_album", "视频相册", FeatureGroup.VIDEO, R.drawable.ic_images),
     entry("m3u8", "m3u8下载", FeatureGroup.VIDEO, R.drawable.ic_download),
@@ -80,6 +81,7 @@ private fun entry(
     @DrawableRes icon: Int,
     operation: EditOperation? = null,
     effectId: String? = null,
+    videoTool: String? = null,
 ) = FeatureEntry(
     id = id,
     label = label,
@@ -87,4 +89,5 @@ private fun entry(
     icon = icon,
     operation = operation,
     effectId = effectId,
+    videoTool = videoTool,
 )

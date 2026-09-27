@@ -36,6 +36,7 @@ import cn.qishui.tool.domain.lyrics.LyricsParser
 import cn.qishui.tool.domain.waveform.WaveformSource
 import cn.qishui.tool.feature.edit.export.ExportTargetWriter
 import cn.qishui.tool.media.pcm.PcmChunkReader
+import cn.qishui.tool.media.video.VideoTools
 import cn.qishui.tool.media.waveform.WaveformExtractor
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
@@ -98,6 +99,7 @@ class AppContainer(context: Context) {
     val lyricsParser: LyricsParser = QsmusicLyricParser()
     val exportTempDirectory: File = File(applicationContext.cacheDir, "exports")
     val exportTargetWriter by lazy { ExportTargetWriter(applicationContext) }
+    val videoTools by lazy { VideoTools(applicationContext, pcmChunkReader) }
 
     init {
         applicationScope.launch {

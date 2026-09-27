@@ -106,7 +106,8 @@ class LocalAudioImporter(
 
     private companion object {
         const val DefaultBufferSize = 64 * 1024
-        val SupportedContainers = setOf("mp3", "wav", "flac", "m4a", "aac")
+        // opus/ogg/webm 交给系统解码器（MediaExtractor 原生支持 Opus）
+        val SupportedContainers = setOf("mp3", "wav", "flac", "m4a", "aac", "opus", "ogg", "webm")
         val InvalidFileNameCharacters = Regex("""[<>:"/\\|?*\u0000-\u001F\u007F]""")
     }
 }

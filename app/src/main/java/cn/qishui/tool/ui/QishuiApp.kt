@@ -9,6 +9,18 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -18,6 +30,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -68,6 +81,34 @@ fun QishuiApp(
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
+    val appContext = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val videoMessage = remember { SnackbarHostState() }
+
+    val videoAudioPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val outcome = withContext(Dispatchers.IO) {
+                runCatching {
+                    val cached = File(appContext.cacheDir, "video-src").apply { mkdirs() }
+                        .let { File(it, "src-${System.currentTimeMillis()}.video") }
+                    appContext.contentResolver.openInputStream(uri)?.use { input ->
+                        cached.outputStream().use { output -> input.copyTo(output) }
+                    } ?: throw IllegalStateException("无法读取所选视频")
+                    val wav = container.videoTools.extractAudio(cached, "视频音频")
+                        .getOrThrow()
+                    container.sourceTrackRepository.importLocalAudio(Uri.fromFile(wav).toString())
+                        .getOrThrow()
+                }
+            }
+            outcome.fold(
+                onSuccess = { videoMessage.showSnackbar("已导入 ${it.title ?: "视频音频"}") },
+                onFailure = { videoMessage.showSnackbar("提取失败：${it.message ?: "未知错误"}") },
+            )
+        }
+    }
 
     CompositionLocalProvider(
         LocalCardStyle provides CardStyle(alpha = settings.cardAlpha, blurDp = settings.cardBlurDp),
@@ -78,6 +119,15 @@ fun QishuiApp(
             wallpaperBlurDp = settings.wallpaperBlurDp,
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    SnackbarHost(
+                        hostState = videoMessage,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top))
+                            .padding(horizontal = 20.dp, vertical = 12.dp),
+                    )
+                }
                 NavHost(
                     navController = navController,
                     startDestination = MainDestination.Resolve.route,
@@ -126,6 +176,7 @@ fun QishuiApp(
                             },
                             onOpenRecords = { navController.navigate(EditDestination.RecordsRoute) },
                             onOpenEffect = { effectId -> navController.navigate("effect/$effectId") },
+                            onExtractVideoAudio = { videoAudioPicker.launch(arrayOf("video/*")) },
                         )
                     }
                     composable("effect/{effectId}") { entry ->

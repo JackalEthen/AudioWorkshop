@@ -8,6 +8,15 @@ set(CMAKE_VISIBILITY_INLINES_HIDDEN ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 get_filename_component(LAME_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../../../third_party/lame" ABSOLUTE)
+get_filename_component(RNNOISE_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../../../third_party/rnnoise" ABSOLUTE)
+
+file(GLOB RNNOISE_SOURCES "${RNNOISE_ROOT}/src/*.c")
+# 这些是命令行小工具，不带 main 会重复符号；rnn_train.py 不是 C 源码
+list(REMOVE_ITEM RNNOISE_SOURCES
+    "${RNNOISE_ROOT}/src/dump_features.c"
+    "${RNNOISE_ROOT}/src/dump_rnnoise_tables.c"
+    "${RNNOISE_ROOT}/src/write_weights.c"
+)
 
 add_library(mp3lame_jni SHARED
     jni_lame_mp3_encoder.c
@@ -31,6 +40,9 @@ add_library(mp3lame_jni SHARED
     "${LAME_ROOT}/libmp3lame/vbrquantize.c"
     "${LAME_ROOT}/libmp3lame/version.c"
     "${LAME_ROOT}/libmp3lame/mpglib_interface.c"
+    jni_rnnoise.c
+    ${RNNOISE_SOURCES}
+    "${RNNOISE_ROOT}/src/rnnoise_data_little.c"
 )
 
 target_include_directories(mp3lame_jni PRIVATE
@@ -38,9 +50,11 @@ target_include_directories(mp3lame_jni PRIVATE
     "${LAME_ROOT}"
     "${LAME_ROOT}/include"
     "${LAME_ROOT}/libmp3lame"
+    "${RNNOISE_ROOT}/include"
+    "${RNNOISE_ROOT}/src"
 )
 
-target_compile_definitions(mp3lame_jni PRIVATE HAVE_CONFIG_H)
+target_compile_definitions(mp3lame_jni PRIVATE HAVE_CONFIG_H FLOAT_APPROX)
 
 target_compile_options(mp3lame_jni PRIVATE
     -O3
