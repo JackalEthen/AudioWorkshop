@@ -52,7 +52,6 @@ val FeatureCatalog: List<FeatureEntry> = listOf(
     entry("lrc", "Lrc歌词编辑", FeatureGroup.COMMON, R.drawable.ic_captions, EditOperation.LYRIC_OFFSET),
     entry("metadata", "修改音乐信息", FeatureGroup.COMMON, R.drawable.ic_type, tool = "metadata"),
     entry("loudness", "响度标准化", FeatureGroup.COMMON, R.drawable.ic_gauge, effectId = "loudness"),
-    entry("opus", "Opus解码", FeatureGroup.COMMON, R.drawable.ic_file_audio, effectId = "convert"),
 
     // 音效处理
     entry("equalizer", "均衡器", FeatureGroup.EFFECT, R.drawable.ic_equal_approximately, effectId = "equalizer"),

@@ -135,9 +135,6 @@ fun EditWorkspaceScreen(
         Column(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
             QishuiTopBar(
                 title = state.track?.title ?: operation.card().label,
-                subtitle = listOfNotNull(operation.card().label, state.track?.artist)
-                    .joinToString(" · ")
-                    .ifBlank { operation.card().label },
                 onBack = onBack,
                 actionContent = {
                     InfoHintAction(
