@@ -45,6 +45,8 @@ import cn.qishui.tool.data.media.AudioFileProbe
 import cn.qishui.tool.feature.effect.EffectWorkspaceScreen
 import cn.qishui.tool.feature.effect.EffectWorkspaceViewModel
 import cn.qishui.tool.feature.metadata.MetadataScreen
+import cn.qishui.tool.feature.video.VideoEditScreen
+import cn.qishui.tool.feature.video.VideoTool
 import cn.qishui.tool.feature.metadata.MetadataViewModel
 import java.io.File
 import cn.qishui.tool.domain.model.AppSettings
@@ -179,10 +181,25 @@ fun QishuiApp(
                             onOpenRecords = { navController.navigate(EditDestination.RecordsRoute) },
                             onOpenEffect = { effectId -> navController.navigate("effect/$effectId") },
                             onExtractVideoAudio = { videoAudioPicker.launch(arrayOf("video/*")) },
+                            onVideoTrim = { navController.navigate("video_trim") },
+                            onVideoJoin = { navController.navigate("video_join") },
+                            onVideoSpeed = { navController.navigate("video_speed") },
                             onOpenMetadata = { navController.navigate("metadata") },
                         )
                     }
-                    composable("metadata") {
+                    listOf(
+                    VideoTool.TRIM to "video_trim",
+                    VideoTool.JOIN to "video_join",
+                    VideoTool.SPEED to "video_speed",
+                ).forEach { (tool, route) ->
+                    composable(route) {
+                        VideoEditScreen(
+                            tool = tool,
+                            onBack = { navController.popBackStack() },
+                        )
+                    }
+                }
+                composable("metadata") {
                         val factory = remember(container) {
                             MetadataViewModel.factory(
                                 container.sourceTrackRepository,

@@ -1,5 +1,6 @@
 package cn.qishui.tool.media.waveform
 
+import android.os.SystemClock
 import cn.qishui.tool.domain.model.WaveformPeaks
 import cn.qishui.tool.domain.waveform.WaveformSource
 import cn.qishui.tool.media.pcm.PcmChunkReader
@@ -14,18 +15,38 @@ class WaveformExtractor(
     private val durationUsOf: (File) -> Long,
 ) : WaveformSource {
 
-    override suspend fun peaks(sourceTrackId: String, file: File): WaveformPeaks = withContext(Dispatchers.IO) {
+    override suspend fun peaks(
+        sourceTrackId: String,
+        file: File,
+        onPartial: (WaveformPeaks) -> Unit,
+    ): WaveformPeaks = withContext(Dispatchers.IO) {
         val key = cacheKey(sourceTrackId, file)
-        WaveformCache.get(key) ?: run {
-            val durationUs = durationUsOf(file)
-            val accumulator = WaveformBucketAccumulator(WaveformBuckets.countFor(durationUs), durationUs)
-            val context: CoroutineContext = coroutineContext
-            chunkReader.read(file) { chunk ->
-                context.ensureActive()
-                accumulator.accept(chunk.presentationTimeUs, chunk.sampleRateHz, chunk.channels, chunk.samples)
-            }
-            accumulator.build(0L, durationUs).also { WaveformCache.put(key, it) }
+        WaveformCache.get(key)?.let { cached ->
+            onPartial(cached)
+            return@withContext cached
         }
+        val durationUs = durationUsOf(file)
+        val accumulator = WaveformBucketAccumulator(WaveformBuckets.countFor(durationUs), durationUs)
+        val context: CoroutineContext = coroutineContext
+        // 每 PARTIAL_INTERVAL_MS 抛一次已解出的部分，界面就能立刻画出来。
+        var lastEmitAt = SystemClock.elapsedRealtime()
+        chunkReader.read(file) { chunk ->
+            context.ensureActive()
+            accumulator.accept(chunk.presentationTimeUs, chunk.sampleRateHz, chunk.channels, chunk.samples)
+            val now = SystemClock.elapsedRealtime()
+            if (now - lastEmitAt >= PARTIAL_INTERVAL_MS) {
+                lastEmitAt = now
+                onPartial(accumulator.build(0L, durationUs))
+            }
+        }
+        accumulator.build(0L, durationUs).also {
+            WaveformCache.put(key, it)
+            onPartial(it)
+        }
+    }
+
+    private companion object {
+        const val PARTIAL_INTERVAL_MS = 250L
     }
 
     private fun cacheKey(sourceTrackId: String, file: File): String =

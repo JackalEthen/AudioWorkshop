@@ -73,6 +73,7 @@ dependencies {
     implementation(libs.androidx.room.ktx)
     implementation(libs.androidx.media3.common)
     implementation(libs.androidx.media3.exoplayer)
+    implementation(libs.androidx.media3.transformer)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.documentfile)
     kapt(libs.androidx.room.compiler)

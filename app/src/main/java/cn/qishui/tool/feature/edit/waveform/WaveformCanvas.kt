@@ -126,12 +126,6 @@ fun WaveformCanvas(
             topLeft = Offset(playheadX.coerceIn(0f, (width - PLAYHEAD_WIDTH_PX).coerceAtLeast(0f)), 0f),
             size = Size(PLAYHEAD_WIDTH_PX, size.height),
         )
-        drawRect(
-            color = handleColor,
-            topLeft = Offset(startX - HANDLE_WIDTH_PX / 2f, 0f),
-            size = Size((endX - startX + HANDLE_WIDTH_PX).coerceAtLeast(HANDLE_WIDTH_PX), size.height),
-            style = Stroke(width = HANDLE_WIDTH_PX),
-        )
     }
 }
 

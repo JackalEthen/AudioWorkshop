@@ -52,6 +52,9 @@ fun EditHomeScreen(
     onOpenRecords: () -> Unit,
     onOpenEffect: (String) -> Unit,
     onExtractVideoAudio: () -> Unit,
+    onVideoTrim: () -> Unit,
+    onVideoJoin: () -> Unit,
+    onVideoSpeed: () -> Unit,
     onOpenMetadata: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -96,6 +99,9 @@ fun EditHomeScreen(
                                 operation != null -> onOpenWorkspace(operation, "", emptyList())
                                 feature.effectId != null -> onOpenEffect(feature.effectId)
                                     feature.videoTool == "extract_audio" -> onExtractVideoAudio()
+        feature.videoTool == "trim" -> onVideoTrim()
+        feature.videoTool == "join" -> onVideoJoin()
+        feature.videoTool == "speed" -> onVideoSpeed()
                                     feature.tool == "metadata" -> onOpenMetadata()
                                 else -> viewModel.notifyPending(feature.label)
                             }

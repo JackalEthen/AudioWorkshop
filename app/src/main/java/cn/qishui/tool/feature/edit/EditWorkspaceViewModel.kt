@@ -307,7 +307,15 @@ class EditWorkspaceViewModel(
             return
         }
         viewModelScope.launch {
-            val result = runCatching { waveformSource.peaks(track.id, File(path)) }
+            // 边解码边把已解出的部分推给界面，最后一次是完整波形。
+            val result = runCatching {
+                waveformSource.peaks(track.id, File(path)) { partial ->
+                    mutableUiState.update { current ->
+                        if (current.waveform is WaveformUiState.Error) current
+                        else current.copy(waveform = WaveformUiState.Ready(partial))
+                    }
+                }
+            }
             mutableUiState.update { current ->
                 val waveform = result.fold(
                     onSuccess = { peaks -> WaveformUiState.Ready(peaks) },

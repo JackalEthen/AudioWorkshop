@@ -70,6 +70,9 @@ val FeatureCatalog: List<FeatureEntry> = listOf(
 
     // 视频处理
     entry("video_audio", "视频提取音频", FeatureGroup.VIDEO, R.drawable.ic_film, videoTool = "extract_audio"),
+    entry("video_trim", "视频裁剪", FeatureGroup.VIDEO, R.drawable.ic_square_play, videoTool = "trim"),
+    entry("video_join", "视频拼接", FeatureGroup.VIDEO, R.drawable.ic_list_video, videoTool = "join"),
+    entry("video_speed", "视频变速", FeatureGroup.VIDEO, R.drawable.ic_gauge, videoTool = "speed"),
 
 
 
