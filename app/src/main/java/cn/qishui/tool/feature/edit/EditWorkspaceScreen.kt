@@ -48,6 +48,8 @@ import cn.qishui.tool.feature.edit.lyrics.LyricsPanel
 import cn.qishui.tool.feature.edit.waveform.WaveformCanvas
 import cn.qishui.tool.feature.edit.waveform.WaveformGeometry
 import cn.qishui.tool.feature.edit.waveform.WaveformSelection
+import cn.qishui.tool.ui.components.InfoHintAction
+import cn.qishui.tool.ui.components.InfoHintBox
 import cn.qishui.tool.ui.components.TopSnackbarHost
 import cn.qishui.tool.ui.components.DeleteSelectionSheet
 import cn.qishui.tool.ui.components.PlainCard
@@ -76,6 +78,7 @@ fun EditWorkspaceScreen(
     var selectingTracks by rememberSaveable { mutableStateOf(false) }
     var selectedTrackIds by rememberSaveable { mutableStateOf(emptySet<String>()) }
     var confirmDeleteTracks by remember { mutableStateOf(false) }
+    var hintVisible by rememberSaveable { mutableStateOf(false) }
     val operation = state.operation
     val durationUs = (state.track?.durationMs ?: 0L) * 1000L
 
@@ -135,8 +138,20 @@ fun EditWorkspaceScreen(
                     .joinToString(" · ")
                     .ifBlank { operation.card().label },
                 onBack = onBack,
+                actionContent = {
+                    InfoHintAction(
+                        hint = operationHint(operation),
+                        expanded = hintVisible,
+                        onToggle = { hintVisible = !hintVisible },
+                    )
+                },
             )
             ScreenScroll {
+                InfoHintBox(
+                    hint = operationHint(operation),
+                    visible = hintVisible,
+                    onDismiss = { hintVisible = false },
+                )
                 if (state.track == null) {
                     PlainCard(modifier = Modifier.fillMaxWidth()) {
                         Column(

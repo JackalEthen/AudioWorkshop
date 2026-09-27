@@ -60,7 +60,6 @@ class EffectWorkspaceViewModel(
         EffectUiState(definition = definition, values = definition.defaults()),
     )
     val uiState: StateFlow<EffectUiState> = mutableState.asStateFlow()
-
     private val mutableExportState = MutableStateFlow(ExportUiState())
     val exportState: StateFlow<ExportUiState> = mutableExportState.asStateFlow()
 
@@ -106,6 +105,10 @@ class EffectWorkspaceViewModel(
 
     fun setValue(paramId: String, value: Float) {
         mutableState.update { it.copy(values = it.values + (paramId to value)) }
+    }
+
+    fun resetParams() {
+        mutableState.update { it.copy(values = definition.defaults()) }
     }
 
     fun consumeMessage() {

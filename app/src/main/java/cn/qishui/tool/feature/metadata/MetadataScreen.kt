@@ -388,7 +388,9 @@ private fun EditValueDialog(
             Text(
                 text = "确定",
                 color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.clickable { onConfirm(text.trim()) },
+                modifier = Modifier
+                    .padding(start = 4.dp)
+                    .clickable { onConfirm(text.trim()) },
             )
         },
         dismissButton = {

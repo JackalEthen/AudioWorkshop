@@ -38,28 +38,28 @@ val FeatureCatalog: List<FeatureEntry> = listOf(
     entry("join", "合成", FeatureGroup.CUT, R.drawable.ic_combine, EditOperation.JOIN),
     entry("convert", "格式转换", FeatureGroup.CUT, R.drawable.ic_repeat, effectId = "convert"),
     entry("mix", "混音", FeatureGroup.CUT, R.drawable.ic_blend, effectId = "mix"),
-    entry("speed_pitch", "变速变调", FeatureGroup.CUT, R.drawable.ic_gauge),
-    entry("segment_pitch", "分段变调", FeatureGroup.CUT, R.drawable.ic_sliders_vertical),
-    entry("segment_gain", "分段修改音量", FeatureGroup.CUT, R.drawable.ic_layers),
+    entry("speed_pitch", "变速变调", FeatureGroup.CUT, R.drawable.ic_gauge, effectId = "speed_pitch"),
+    entry("segment_pitch", "分段变调", FeatureGroup.CUT, R.drawable.ic_sliders_vertical, effectId = "segment_pitch"),
+    entry("segment_gain", "分段修改音量", FeatureGroup.CUT, R.drawable.ic_layers, effectId = "segment_gain"),
     entry("fade", "淡入淡出", FeatureGroup.CUT, R.drawable.ic_audio_lines, EditOperation.FADE_IN),
     entry("gain", "修改音量", FeatureGroup.CUT, R.drawable.ic_volume_2, EditOperation.GAIN),
     entry("silence_trim", "去除头尾", FeatureGroup.CUT, R.drawable.ic_signal, effectId = "silence_trim"),
     entry("split", "音频分割", FeatureGroup.CUT, R.drawable.ic_split, EditOperation.SPLIT),
 
     // 常规功能
-    entry("tts", "文字转音频", FeatureGroup.COMMON, R.drawable.ic_text),
-    entry("asr", "音频转文字", FeatureGroup.COMMON, R.drawable.ic_mic),
+
+
     entry("lrc", "Lrc歌词编辑", FeatureGroup.COMMON, R.drawable.ic_captions, EditOperation.LYRIC_OFFSET),
     entry("metadata", "修改音乐信息", FeatureGroup.COMMON, R.drawable.ic_type, tool = "metadata"),
     entry("loudness", "响度标准化", FeatureGroup.COMMON, R.drawable.ic_gauge, effectId = "loudness"),
-    entry("opus", "Opus解码", FeatureGroup.COMMON, R.drawable.ic_file_audio),
+    entry("opus", "Opus解码", FeatureGroup.COMMON, R.drawable.ic_file_audio, effectId = "convert"),
 
     // 音效处理
     entry("equalizer", "均衡器", FeatureGroup.EFFECT, R.drawable.ic_equal_approximately, effectId = "equalizer"),
     entry("stereo_widen", "立体声环绕", FeatureGroup.EFFECT, R.drawable.ic_speaker, effectId = "stereo_widen"),
     entry("stereo_split", "立体声分离", FeatureGroup.EFFECT, R.drawable.ic_mic_vocal, effectId = "stereo_split"),
     entry("stereo_mix", "立体声合成", FeatureGroup.EFFECT, R.drawable.ic_copy, effectId = "stereo_mix"),
-    entry("denoise", "降噪", FeatureGroup.EFFECT, R.drawable.ic_zap),
+    entry("denoise", "降噪", FeatureGroup.EFFECT, R.drawable.ic_zap, effectId = "denoise"),
     entry("repair", "音频修复", FeatureGroup.EFFECT, R.drawable.ic_wrench, effectId = "repair"),
     entry("echo", "回声效果", FeatureGroup.EFFECT, R.drawable.ic_radio, effectId = "echo"),
     entry("choir", "合唱效果", FeatureGroup.EFFECT, R.drawable.ic_users, effectId = "choir"),
@@ -70,11 +70,11 @@ val FeatureCatalog: List<FeatureEntry> = listOf(
 
     // 视频处理
     entry("video_audio", "视频提取音频", FeatureGroup.VIDEO, R.drawable.ic_film, videoTool = "extract_audio"),
-    entry("av_mux", "音/视频合成", FeatureGroup.VIDEO, R.drawable.ic_clapperboard),
-    entry("video_album", "视频相册", FeatureGroup.VIDEO, R.drawable.ic_images),
-    entry("m3u8", "m3u8下载", FeatureGroup.VIDEO, R.drawable.ic_download),
-    entry("video_trim", "视频剪辑", FeatureGroup.VIDEO, R.drawable.ic_square_play),
-    entry("video_join", "视频拼接", FeatureGroup.VIDEO, R.drawable.ic_list_video),
+
+
+
+
+
 )
 
 private fun entry(

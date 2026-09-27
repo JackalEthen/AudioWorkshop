@@ -603,18 +603,21 @@ fun SecondaryButton(
     enabled: Boolean = true,
     containerColor: Color = MaterialTheme.colorScheme.primaryContainer,
     contentColor: Color = MaterialTheme.colorScheme.onPrimaryContainer,
+    textStyle: androidx.compose.ui.text.TextStyle = MaterialTheme.typography.labelLarge,
+    contentPadding: PaddingValues = ButtonDefaults.ContentPadding,
 ) {
     Button(
         onClick = onClick,
         enabled = enabled,
         modifier = modifier.height(52.dp),
         shape = MaterialTheme.shapes.large,
+        contentPadding = contentPadding,
         colors = ButtonDefaults.buttonColors(
             containerColor = containerColor,
             contentColor = contentColor,
         ),
     ) {
-        Text(text = text, style = MaterialTheme.typography.labelLarge)
+        Text(text = text, style = textStyle, maxLines = 1)
     }
 }
 
