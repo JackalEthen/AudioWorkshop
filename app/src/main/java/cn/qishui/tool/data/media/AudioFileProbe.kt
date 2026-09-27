@@ -18,6 +18,7 @@ data class ProbedAudio(
     val title: String?,
     val artist: String?,
     val album: String?,
+    val channels: Int = 0,
 )
 
 class AudioFileProbe {
@@ -31,7 +32,7 @@ class AudioFileProbe {
         // 传 fd 而不是路径：中文文件名在 native 层会 Failed to instantiate extractor
         return FileInputStream(file).use { stream ->
             val container = probeContainer { it.setDataSource(stream.fd) }
-                ?: ContainerProbe(null, null, null, null)
+                ?: ContainerProbe(null, null, null, null, 0)
             container.toProbedAudio(sizeBytes, probeTags { it.setDataSource(stream.fd) })
         }
     }
@@ -39,7 +40,7 @@ class AudioFileProbe {
     fun probeUri(context: Context, uri: Uri): ProbedAudio {
         val sizeBytes = querySize(context, uri)
         val container = probeContainer { it.setDataSource(context, uri, null) }
-            ?: ContainerProbe(null, null, null, null)
+            ?: ContainerProbe(null, null, null, null, 0)
         return container.toProbedAudio(sizeBytes, probeTags { it.setDataSource(context, uri) })
     }
 
@@ -56,6 +57,7 @@ class AudioFileProbe {
                     durationMs = format.longOrNull(MediaFormat.KEY_DURATION)?.div(1000L),
                     bitrateBps = format.longOrNull(MediaFormat.KEY_BIT_RATE),
                     sampleRateHz = format.longOrNull(MediaFormat.KEY_SAMPLE_RATE),
+                    channels = format.longOrNull(MediaFormat.KEY_CHANNEL_COUNT)?.toInt() ?: 0,
                 )
             }
         } catch (error: Exception) {
@@ -110,6 +112,7 @@ class AudioFileProbe {
         title = tags.title,
         artist = tags.artist,
         album = tags.album,
+        channels = channels,
     )
 
     private data class ContainerProbe(
@@ -117,6 +120,7 @@ class AudioFileProbe {
         val durationMs: Long?,
         val bitrateBps: Long?,
         val sampleRateHz: Long?,
+        val channels: Int,
     )
 
     private data class TrackTags(val title: String?, val artist: String?, val album: String?)

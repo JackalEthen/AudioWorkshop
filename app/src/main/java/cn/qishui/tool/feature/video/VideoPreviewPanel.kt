@@ -20,6 +20,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -55,6 +56,7 @@ fun VideoPreviewPanel(
     startSec: Float,
     endSec: Float,
     speed: Float,
+    autoPlay: Boolean,
     onStartAtPlayhead: (Float) -> Unit,
     onEndAtPlayhead: (Float) -> Unit,
     onDurationKnown: (Long) -> Unit,
@@ -69,6 +71,7 @@ fun VideoPreviewPanel(
     var durationMs by remember { mutableLongStateOf(0L) }
     var errorText by remember { mutableStateOf<String?>(null) }
     var surface by remember { mutableStateOf<SurfaceView?>(null) }
+    var lastStartSec by remember { mutableFloatStateOf(-1f) }
 
     // 换视频就重新装载
     LaunchedEffect(files.map { it.absolutePath }) {
@@ -92,6 +95,11 @@ fun VideoPreviewPanel(
     // 轮询进度 + 裁剪模式下越过终点回到起点
     LaunchedEffect(isPlaying, tool, startSec, endSec) {
         while (true) {
+            if (autoPlay && tool == VideoTool.TRIM && lastStartSec != startSec) {
+                lastStartSec = startSec
+                player.seekTo((startSec * 1000).toLong())
+                if (!isPlaying) player.play()
+            }
             positionMs = runCatching { player.currentPosition }.getOrDefault(0L)
             durationMs = runCatching { player.duration }.getOrDefault(0L)
             if (tool == VideoTool.TRIM && isPlaying) {

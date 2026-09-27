@@ -171,6 +171,34 @@ fun VideoEditScreen(
                     }
                 }
 
+                if (tool == VideoTool.TRIM) {
+                    PlainCard(modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { viewModel.toggleAutoPlay() }
+                                .padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = "改动时间自动播放",
+                                style = MaterialTheme.typography.bodyLarge,
+                                modifier = Modifier.weight(1f),
+                            )
+                            Text(
+                                text = if (state.autoPlay) "已开启" else "已关闭",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = if (state.autoPlay) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                },
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+
                 VideoPreviewPanel(
                     files = state.videos.map { it.file },
                     tool = tool,
@@ -181,6 +209,7 @@ fun VideoEditScreen(
                     onEndAtPlayhead = viewModel::setEndSec,
                     onDurationKnown = viewModel::setMaxSec,
                     modifier = Modifier.padding(top = 10.dp),
+                    autoPlay = state.autoPlay,
                 )
                 if (tool == VideoTool.TRIM) {
                     PlainCard(modifier = Modifier.fillMaxWidth()) {
@@ -348,6 +377,7 @@ class VideoEditViewModel : ViewModel() {
         val message: String? = null,
         val tool: VideoTool = VideoTool.TRIM,
         val qualityIndex: Int = 0,
+        val autoPlay: Boolean = true,
     ) {
         val qualityLabel: String
             get() = QUALITY_LABELS[qualityIndex.coerceIn(QUALITY_LABELS.indices)]
@@ -417,6 +447,11 @@ class VideoEditViewModel : ViewModel() {
             maxSec = total,
             endSec = if (current.endSec <= 0f) total else current.endSec.coerceAtMost(total),
         )
+    }
+
+    fun toggleAutoPlay() {
+        val current = mutableUiState.value
+        mutableUiState.value = current.copy(autoPlay = !current.autoPlay)
     }
 
     fun cycleQuality() {

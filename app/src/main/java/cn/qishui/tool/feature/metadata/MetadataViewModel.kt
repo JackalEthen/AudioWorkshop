@@ -126,6 +126,7 @@ class MetadataViewModel(
                 bitrateBps = probed?.bitrateBps ?: 0L,
                 durationMs = probed?.durationMs ?: 0L,
                 sizeBytes = file.length(),
+                channels = probed?.channels ?: 0,
                 path = track.localPath.orEmpty(),
             )
         }
@@ -167,8 +168,14 @@ class MetadataViewModel(
                 lyricsTrack = null,
             )
             try {
-                val target = File(targetUri.removePrefix("file://"))
-                stage.copyTo(target, overwrite = true)
+                // CreateDocument 返回的是 content:// URI，不能当文件路径用，必须走 ContentResolver。
+                val resolver = currentContext?.contentResolver
+                    ?: error("缺少写入上下文")
+                val output = resolver.openOutputStream(Uri.parse(targetUri))
+                    ?: error("无法打开所选位置")
+                output.use { sink ->
+                    stage.inputStream().use { source -> source.copyTo(sink) }
+                }
             } finally {
                 stage.delete()
             }

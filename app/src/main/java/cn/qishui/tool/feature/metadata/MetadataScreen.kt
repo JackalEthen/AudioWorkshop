@@ -185,9 +185,10 @@ fun MetadataScreen(
                         ValueRow(
                             label = "声道数",
                             value = when (state.facts.channels) {
+                                0 -> "未知"
                                 1 -> "Mono"
                                 2 -> "Stereo"
-                                else -> ""
+                                else -> "${state.facts.channels} 声道"
                             },
                         )
                         ValueRow(
