@@ -90,23 +90,28 @@ fun EditHomeScreen(
                 modifier = Modifier.padding(horizontal = 20.dp),
             )
             ScreenScroll {
-                groupFeatures.chunked(FEATURES_PER_CARD).forEach { card ->
-                    FeatureGridCard(
-                        features = card,
-                        onClick = { feature ->
-                            val operation = feature.operation
-                            when {
-                                operation != null -> onOpenWorkspace(operation, "", emptyList())
-                                feature.effectId != null -> onOpenEffect(feature.effectId)
+                Column(
+                    modifier = Modifier.padding(top = 14.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    groupFeatures.chunked(FEATURES_PER_CARD).forEach { card ->
+                        FeatureGridCard(
+                            features = card,
+                            onClick = { feature ->
+                                val operation = feature.operation
+                                when {
+                                    operation != null -> onOpenWorkspace(operation, "", emptyList())
+                                    feature.effectId != null -> onOpenEffect(feature.effectId)
                                     feature.videoTool == "extract_audio" -> onExtractVideoAudio()
-        feature.videoTool == "trim" -> onVideoTrim()
-        feature.videoTool == "join" -> onVideoJoin()
-        feature.videoTool == "speed" -> onVideoSpeed()
+                                    feature.videoTool == "trim" -> onVideoTrim()
+                                    feature.videoTool == "join" -> onVideoJoin()
+                                    feature.videoTool == "speed" -> onVideoSpeed()
                                     feature.tool == "metadata" -> onOpenMetadata()
-                                else -> viewModel.notifyPending(feature.label)
-                            }
-                        },
-                    )
+                                    else -> viewModel.notifyPending(feature.label)
+                                }
+                            },
+                        )
+                    }
                 }
 
                 SectionHeader(title = "最近编辑", caption = "查看全部")

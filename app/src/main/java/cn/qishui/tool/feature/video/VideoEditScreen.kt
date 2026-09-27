@@ -52,6 +52,7 @@ import cn.qishui.tool.ui.components.QishuiTopBar
 import cn.qishui.tool.ui.components.ScreenScroll
 import cn.qishui.tool.ui.components.SecondaryButton
 import cn.qishui.tool.ui.components.SelectBox
+import cn.qishui.tool.ui.components.TimeStepperField
 import cn.qishui.tool.ui.components.TopSnackbarHost
 import java.io.File
 import kotlinx.coroutines.Dispatchers
@@ -170,22 +171,44 @@ fun VideoEditScreen(
                     }
                 }
 
+                VideoPreviewPanel(
+                    files = state.videos.map { it.file },
+                    tool = tool,
+                    startSec = state.startSec,
+                    endSec = state.endSec,
+                    speed = state.speed,
+                    onStartAtPlayhead = viewModel::setStartSec,
+                    onEndAtPlayhead = viewModel::setEndSec,
+                    onDurationKnown = viewModel::setMaxSec,
+                    modifier = Modifier.padding(top = 10.dp),
+                )
                 if (tool == VideoTool.TRIM) {
-                    ParamCard(title = "裁剪范围设置", onReset = viewModel::reset) {
-                        ParamRow(
-                            label = "起始秒",
-                            valueText = "${state.startSec}",
-                            value = state.startSec,
-                            range = 0f..state.maxSec,
-                            onChange = { viewModel.setStartSec(it) },
-                        )
-                        ParamRow(
-                            label = "结束秒",
-                            valueText = "${state.endSec}",
-                            value = state.endSec,
-                            range = 0f..state.maxSec,
-                            onChange = { viewModel.setEndSec(it) },
-                        )
+                    PlainCard(modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier.padding(14.dp),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            TimeStepperField(
+                                label = "开始时间",
+                                minutes = (state.startSec / 60).toInt(),
+                                seconds = (state.startSec % 60).toInt(),
+                                millis = ((state.startSec % 1) * 1000).toInt(),
+                                onMinutes = { viewModel.setStartSec((it * 60).toFloat()) },
+                                onSeconds = { viewModel.setStartSec((it).toFloat()) },
+                                onMillis = { viewModel.setStartSec(it / 1000f) },
+                                modifier = Modifier.weight(1f),
+                            )
+                            TimeStepperField(
+                                label = "结束时间",
+                                minutes = (state.endSec / 60).toInt(),
+                                seconds = (state.endSec % 60).toInt(),
+                                millis = ((state.endSec % 1) * 1000).toInt(),
+                                onMinutes = { viewModel.setEndSec((it * 60).toFloat()) },
+                                onSeconds = { viewModel.setEndSec((it).toFloat()) },
+                                onMillis = { viewModel.setEndSec(it / 1000f) },
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
                     }
                 }
 
@@ -201,7 +224,33 @@ fun VideoEditScreen(
                     }
                 }
 
-                SectionHeaderCompat(title = "导出", action = null, onAction = {})
+                SectionHeaderCompat(title = "导出设置", action = null, onAction = {})
+                PlainCard(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { viewModel.cycleQuality() }
+                            .padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = "清晰度",
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Text(
+                            text = state.qualityLabel,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        LucideIcon(
+                            icon = cn.qishui.tool.R.drawable.ic_chevron_right,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            size = 18.dp,
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(12.dp))
                 PlainCard(modifier = Modifier.fillMaxWidth()) {
                     Column(
                         modifier = Modifier.padding(14.dp),
@@ -298,7 +347,11 @@ class VideoEditViewModel : ViewModel() {
         val progress: Int = 0,
         val message: String? = null,
         val tool: VideoTool = VideoTool.TRIM,
+        val qualityIndex: Int = 0,
     ) {
+        val qualityLabel: String
+            get() = QUALITY_LABELS[qualityIndex.coerceIn(QUALITY_LABELS.indices)]
+
         val canRun: Boolean
             get() = when (tool) {
                 VideoTool.JOIN -> videos.size >= 2
@@ -331,10 +384,7 @@ class VideoEditViewModel : ViewModel() {
                 }
                 val current = mutableUiState.value
                 val next = current.videos + PickedVideo(uri.toString(), name, target)
-                mutableUiState.value = current.copy(
-                    videos = next,
-                    endSec = if (current.endSec == 0f) target.length().toFloat() else current.endSec,
-                )
+                mutableUiState.value = current.copy(videos = next)
             }
         }
     }
@@ -356,6 +406,24 @@ class VideoEditViewModel : ViewModel() {
 
     fun setSpeed(value: Float) {
         mutableUiState.value = mutableUiState.value.copy(speed = value)
+    }
+
+    /** 预览拿到真实时长后，把滑杆量程和默认结束点补上。 */
+    fun setMaxSec(durationMs: Long) {
+        val current = mutableUiState.value
+        val total = durationMs / 1000f
+        if (total <= 0f) return
+        mutableUiState.value = current.copy(
+            maxSec = total,
+            endSec = if (current.endSec <= 0f) total else current.endSec.coerceAtMost(total),
+        )
+    }
+
+    fun cycleQuality() {
+        val current = mutableUiState.value
+        mutableUiState.value = current.copy(
+            qualityIndex = (current.qualityIndex + 1) % QUALITY_LABELS.size,
+        )
     }
 
     fun reset() {
@@ -380,17 +448,20 @@ class VideoEditViewModel : ViewModel() {
                     (current.startSec * 1000).toLong(),
                     (current.endSec * 1000).toLong(),
                     out,
+                    QUALITY_HEIGHTS[current.qualityIndex],
                 ) { p -> mutableUiState.value = mutableUiState.value.copy(progress = p) }
 
                 VideoTool.SPEED -> engine.speed(
                     current.videos.first().file,
                     current.speed,
                     out,
+                    QUALITY_HEIGHTS[current.qualityIndex],
                 ) { p -> mutableUiState.value = mutableUiState.value.copy(progress = p) }
 
                 VideoTool.JOIN -> engine.join(
                     current.videos.map { it.file },
                     out,
+                    QUALITY_HEIGHTS[current.qualityIndex],
                 ) { p -> mutableUiState.value = mutableUiState.value.copy(progress = p) }
             }
             val message = result.fold(
@@ -433,6 +504,9 @@ class VideoEditViewModel : ViewModel() {
         return name ?: "video_${System.currentTimeMillis()}.mp4"
     }
 }
+
+private val QUALITY_LABELS = listOf("超清", "高清", "标清", "流畅")
+private val QUALITY_HEIGHTS = intArrayOf(0, 720, 480, 360)
 
 object VideoEditEngineHolder {
     var instance: VideoEditEngine? = null

@@ -2,6 +2,7 @@ package cn.qishui.tool.media.video
 
 import android.content.Context
 import androidx.media3.common.MediaItem
+import androidx.media3.effect.Presentation
 import androidx.media3.common.audio.SpeedProvider
 import androidx.media3.common.util.SpeedProviderUtil
 import androidx.media3.transformer.Composition
@@ -31,6 +32,7 @@ class VideoEditEngine(context: Context) {
         startMs: Long,
         endMs: Long,
         target: File,
+        scaleHeight: Int,
         onProgress: (Int) -> Unit,
     ): Result<File> {
         val mediaItem = MediaItem.Builder()
@@ -42,7 +44,7 @@ class VideoEditEngine(context: Context) {
                     .build(),
             )
             .build()
-        val item = EditedMediaItem.Builder(mediaItem).build()
+        val item = EditedMediaItem.Builder(mediaItem).setEffects(scaleEffects(scaleHeight)).build()
         return run(item, null, target, onProgress)
     }
 
@@ -50,6 +52,7 @@ class VideoEditEngine(context: Context) {
     suspend fun join(
         sources: List<File>,
         target: File,
+        scaleHeight: Int,
         onProgress: (Int) -> Unit,
     ): Result<File> {
         if (sources.size < 2) return Result.failure(IllegalArgumentException("至少选择 2 个视频"))
@@ -58,7 +61,9 @@ class VideoEditEngine(context: Context) {
                 MediaItem.Builder().setUri(file.toURI().toString()).build(),
             ).build()
         }
-        val composition = Composition.Builder(EditedMediaItemSequence.Builder(items).build()).build()
+        val composition = Composition.Builder(EditedMediaItemSequence.Builder(items).build())
+            .setEffects(scaleEffects(scaleHeight))
+            .build()
         return run(null, composition, target, onProgress)
     }
 
@@ -67,14 +72,28 @@ class VideoEditEngine(context: Context) {
         source: File,
         speed: Float,
         target: File,
+        scaleHeight: Int,
         onProgress: (Int) -> Unit,
     ): Result<File> {
         val pair = Effects.createExperimentalSpeedChangingEffect(ConstantSpeed(speed))
         val item = EditedMediaItem.Builder(
             MediaItem.Builder().setUri(source.toURI().toString()).build(),
-        ).setEffects(Effects(listOf(pair.first), listOf(pair.second))).build()
+        ).setEffects(
+            Effects(listOf(pair.first), listOf(pair.second) + scaleVideoEffects(scaleHeight)),
+        ).build()
         return run(item, null, target, onProgress)
     }
+
+    private fun scaleVideoEffects(scaleHeight: Int): List<androidx.media3.common.Effect> =
+        if (scaleHeight <= 0) emptyList() else listOf(Presentation.createForHeight(scaleHeight))
+
+    /** 清晰度：按目标高度缩放，保持原比例。[scaleHeight] <= 0 表示保持原始分辨率。 */
+    private fun scaleEffects(scaleHeight: Int): Effects =
+        if (scaleHeight <= 0) {
+            Effects.EMPTY
+        } else {
+            Effects(emptyList(), listOf(Presentation.createForHeight(scaleHeight)))
+        }
 
     /** 恒定速度：自己实现，省得依赖工具类的包路径在不同版本里变来变去。 */
     private class ConstantSpeed(private val value: Float) : SpeedProvider {
