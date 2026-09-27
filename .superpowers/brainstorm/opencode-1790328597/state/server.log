@@ -1,0 +1,7 @@
+{"type":"server-started","port":63059,"host":"127.0.0.1","url_host":"localhost","url":"http://localhost:63059","screen_dir":"T:\\Zfile\\qishui\\.superpowers\\brainstorm\\opencode-1790328597\\content","state_dir":"T:\\Zfile\\qishui\\.superpowers\\brainstorm\\opencode-1790328597\\state"}
+{"type":"screen-added","file":"T:\\Zfile\\qishui\\.superpowers\\brainstorm\\opencode-1790328597\\content\\visual-style.html"}
+{"source":"user-event","type":"click","text":"09:415G ▰\n      \n        音乐工具\n        一昭成名一昭成名 · 03:52\n         \n        −15▶＋3\n        编辑片段\n        片段 1片段 2\n        导出 MP3\n      \n    \n    B · Material You熟悉、标准、学习成本最低，组件克制但视觉个性较弱。","choice":"material","id":null,"timestamp":1790329071087}
+{"type":"screen-added","file":"T:\\Zfile\\qishui\\.superpowers\\brainstorm\\opencode-1790328597\\content\\waiting-feedback.html"}
+{"type":"screen-added","file":"T:\\Zfile\\qishui\\.superpowers\\brainstorm\\opencode-1790328597\\content\\layout-v2.html"}
+{"type":"screen-added","file":"T:\\Zfile\\qishui\\.superpowers\\brainstorm\\opencode-1790328597\\content\\layout-v3-light-palette.html"}
+{"type":"server-stopped","reason":"idle timeout"}

@@ -1,0 +1,57 @@
+<style>
+  .direction-grid{display:grid;grid-template-columns:repeat(3,minmax(260px,1fr));gap:22px;margin-top:22px}.direction{border:1px solid #d7dbe4;border-radius:16px;padding:14px;background:#fff;cursor:pointer;transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}.direction:hover{transform:translateY(-3px);border-color:#77839a;box-shadow:0 8px 24px rgba(25,32,48,.10)}.direction.selected{border:2px solid #4f6bff;padding:13px;box-shadow:0 0 0 4px rgba(79,107,255,.12)}.phone{width:100%;aspect-ratio:9/18.5;border-radius:28px;overflow:hidden;border:1px solid rgba(120,130,150,.35);position:relative}.status{height:28px;display:flex;align-items:center;justify-content:space-between;padding:0 15px;font-size:9px;font-weight:700}.body{padding:12px 15px 16px}.brand{font-size:10px;font-weight:800;letter-spacing:.02em}.track{display:flex;gap:11px;align-items:center;margin:15px 0}.cover{width:52px;height:52px;border-radius:12px;position:relative;overflow:hidden;flex:0 0 auto}.cover:before,.cover:after{content:"";position:absolute}.cover:before{inset:8px;background:currentColor;transform:rotate(45deg)}.cover:after{width:18px;height:54px;background:currentColor;left:17px;top:-1px;transform:rotate(28deg);opacity:.8}.title{font-size:13px;font-weight:800}.artist{font-size:9px;margin-top:3px;opacity:.62}.wave{height:74px;display:flex;align-items:center;gap:2px;padding:9px 8px;border-radius:12px}.wave i{display:block;width:2px;border-radius:2px}.controls{display:flex;align-items:center;justify-content:center;gap:20px;margin:16px 0}.play{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;font-size:16px}.tool{width:31px;height:31px;border-radius:10px;display:grid;place-items:center;font-size:12px}.section-title{font-size:9px;font-weight:800;margin:14px 0 8px}.ranges{display:flex;gap:7px}.range{height:34px;border-radius:9px;flex:1;display:flex;align-items:center;padding:0 9px;font-size:8px}.cta{height:38px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;margin-top:12px}.caption{padding:13px 3px 2px}.caption h3{font-size:16px;margin:0 0 5px}.caption p{font-size:12px;line-height:1.55;color:#687083;margin:0}.tag{display:inline-block;margin-top:9px;padding:3px 8px;border-radius:999px;background:#eef1ff;color:#4059c9;font-size:10px;font-weight:700}.studio{background:#0d1016;color:#f7f8fb}.studio .status{color:#aab1c0}.studio .body{background:radial-gradient(circle at 90% 0%,#21352f 0,transparent 30%),#11151d}.studio .cover{background:#b8ff5a;color:#102015}.studio .wave{background:#171e28}.studio .wave i{background:#9eea58}.studio .play{background:#b8ff5a;color:#101811}.studio .tool{background:#202734;color:#d8dde8}.studio .section-title{color:#aeb7c7}.studio .range{background:#1b222d;color:#cbd2df}.studio .range.hot{background:#b8ff5a;color:#15200f}.studio .cta{background:#f5f7fb;color:#11151d}.material{background:#eef1f7;color:#18202f}.material .status{color:#586174}.material .body{background:#f9faff}.material .cover{background:#4d63e7;color:#f4f6ff}.material .wave{background:#fff;box-shadow:0 1px 0 #d8deea}.material .wave i{background:#91a0f5}.material .play{background:#4d63e7;color:#fff}.material .tool{background:#e5e9f7;color:#3b4bc0}.material .section-title{color:#657087}.material .range{background:#fff;color:#46516a}.material .range.hot{background:#dce2ff;color:#3345b4}.material .cta{background:#4d63e7;color:#fff}.cover-led{background:#f5f6f8;color:#111318}.cover-led .status{color:#5f6470}.cover-led .body{background:#f5f6f8}.cover-led .cover{width:78%;height:auto;aspect-ratio:1/.74;border-radius:16px;background:#ff6b55;color:#26100c;margin:16px auto 19px}.cover-led .cover:before{inset:24px 38px;background:#111318;box-shadow:38px 28px 0 #f5f6f8}.cover-led .cover:after{width:26px;height:110px;left:65px;top:8px;background:#ffd44d;opacity:1}.cover-led .track{text-align:center;display:block}.cover-led .title{font-size:18px}.cover-led .artist{font-size:10px}.cover-led .wave{background:#111318;margin-top:16px}.cover-led .wave i{background:#ff6b55}.cover-led .play{background:#ff6b55;color:#fff}.cover-led .tool{background:#e1e3e8;color:#111318}.cover-led .section-title{color:#6a6f7b}.cover-led .range{background:#fff;color:#4e535e}.cover-led .range.hot{background:#111318;color:#fff}.cover-led .cta{background:#111318;color:#fff}@media(max-width:960px){.direction-grid{grid-template-columns:1fr}.phone{max-width:330px;margin:auto}}
+</style>
+
+<h2>选择你更喜欢的 UI 方向</h2>
+<p class="subtitle">三套都基于 Jetpack Compose + Material 3；区别在视觉重心和信息密度。点击任一方案完成选择。</p>
+
+<div class="direction-grid">
+  <div class="direction" data-choice="studio" onclick="toggleSelect(this)">
+    <div class="phone studio">
+      <div class="status"><span>09:41</span><span>5G ▰</span></div>
+      <div class="body">
+        <div class="brand">声场编辑器</div>
+        <div class="track"><div class="cover"></div><div><div class="title">一昭成名</div><div class="artist">一昭成名 · 03:52</div></div></div>
+        <div class="wave"> <i style="height:24%"></i><i style="height:58%"></i><i style="height:38%"></i><i style="height:84%"></i><i style="height:48%"></i><i style="height:68%"></i><i style="height:31%"></i><i style="height:76%"></i><i style="height:43%"></i><i style="height:61%"></i><i style="height:28%"></i><i style="height:72%"></i><i style="height:50%"></i><i style="height:33%"></i><i style="height:64%"></i><i style="height:40%"></i></div>
+        <div class="controls"><div class="tool">−15</div><div class="play">▶</div><div class="tool">＋3</div></div>
+        <div class="section-title">保留片段</div>
+        <div class="ranges"><div class="range hot">00:18–01:26</div><div class="range">02:04–03:41</div></div>
+        <div class="cta">导出 MP3</div>
+      </div>
+    </div>
+    <div class="caption"><h3>A · 波形工作台</h3><p>深色、专业、波形是视觉中心，适合频繁剪辑和精细操作。</p><span class="tag">推荐</span></div>
+  </div>
+
+  <div class="direction" data-choice="material" onclick="toggleSelect(this)">
+    <div class="phone material">
+      <div class="status"><span>09:41</span><span>5G ▰</span></div>
+      <div class="body">
+        <div class="brand">音乐工具</div>
+        <div class="track"><div class="cover"></div><div><div class="title">一昭成名</div><div class="artist">一昭成名 · 03:52</div></div></div>
+        <div class="wave"> <i style="height:30%"></i><i style="height:62%"></i><i style="height:45%"></i><i style="height:80%"></i><i style="height:52%"></i><i style="height:70%"></i><i style="height:35%"></i><i style="height:78%"></i><i style="height:48%"></i><i style="height:60%"></i><i style="height:33%"></i><i style="height:68%"></i><i style="height:44%"></i><i style="height:76%"></i></div>
+        <div class="controls"><div class="tool">−15</div><div class="play">▶</div><div class="tool">＋3</div></div>
+        <div class="section-title">编辑片段</div>
+        <div class="ranges"><div class="range hot">片段 1</div><div class="range">片段 2</div></div>
+        <div class="cta">导出 MP3</div>
+      </div>
+    </div>
+    <div class="caption"><h3>B · Material You</h3><p>熟悉、标准、学习成本最低，组件克制但视觉个性较弱。</p></div>
+  </div>
+
+  <div class="direction" data-choice="cover-led" onclick="toggleSelect(this)">
+    <div class="phone cover-led">
+      <div class="status"><span>09:41</span><span>5G ▰</span></div>
+      <div class="body">
+        <div class="brand">音频工坊</div>
+        <div class="cover"></div>
+        <div class="track"><div><div class="title">一昭成名</div><div class="artist">一昭成名 · 03:52</div></div></div>
+        <div class="wave"> <i style="height:36%"></i><i style="height:71%"></i><i style="height:49%"></i><i style="height:88%"></i><i style="height:57%"></i><i style="height:74%"></i><i style="height:41%"></i><i style="height:82%"></i><i style="height:52%"></i><i style="height:67%"></i><i style="height:37%"></i><i style="height:79%"></i><i style="height:47%"></i><i style="height:65%"></i></div>
+        <div class="controls"><div class="tool">−15</div><div class="play">▶</div><div class="tool">＋3</div></div>
+        <div class="section-title">片段</div>
+        <div class="ranges"><div class="range hot">选中 1</div><div class="range">删除 1</div></div>
+        <div class="cta">生成音频</div>
+      </div>
+    </div>
+    <div class="caption"><h3>C · 封面驱动</h3><p>强调歌曲封面与个性，品牌感最强，但编辑效率略低于 A。</p></div>
+  </div>
+</div>
