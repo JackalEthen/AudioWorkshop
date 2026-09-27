@@ -28,6 +28,9 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.lifecycle.viewmodel.compose.viewModel
 import cn.qishui.tool.app.AppContainer
+import cn.qishui.tool.data.media.AudioFileProbe
+import cn.qishui.tool.feature.effect.EffectWorkspaceScreen
+import cn.qishui.tool.feature.effect.EffectWorkspaceViewModel
 import java.io.File
 import cn.qishui.tool.domain.model.AppSettings
 import cn.qishui.tool.domain.model.EditOperation
@@ -122,6 +125,28 @@ fun QishuiApp(
                                 navController.navigate(EditDestination.workspace(operation, trackId, joinedIds))
                             },
                             onOpenRecords = { navController.navigate(EditDestination.RecordsRoute) },
+                            onOpenEffect = { effectId -> navController.navigate("effect/$effectId") },
+                        )
+                    }
+                    composable("effect/{effectId}") { entry ->
+                        val effectId = entry.arguments?.getString("effectId").orEmpty()
+                        val context = LocalContext.current
+                        val factory = remember(effectId) {
+                            EffectWorkspaceViewModel.factory(
+                                context = context,
+                                effectId = effectId,
+                                sourceTrackRepository = container.sourceTrackRepository,
+                                encoderClient = container.encoderClient,
+                                exportTargetWriter = container.exportTargetWriter,
+                                probe = AudioFileProbe(),
+                                pcmChunkReader = container.pcmChunkReader,
+                                exportTempDirectory = container.exportTempDirectory,
+                            )
+                        }
+                        val effectViewModel: EffectWorkspaceViewModel = viewModel(factory = factory)
+                        EffectWorkspaceScreen(
+                            viewModel = effectViewModel,
+                            onBack = { navController.popBackStack() },
                         )
                     }
                     composable(EditDestination.RecordsRoute) {

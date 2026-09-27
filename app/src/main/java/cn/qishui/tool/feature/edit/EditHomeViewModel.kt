@@ -105,6 +105,11 @@ class EditHomeViewModel(
         local.value = local.value.copy(message = null)
     }
 
+    /** 目录里还没有工作台的功能先如实说明，不假装能打开。 */
+    fun notifyPending(label: String) {
+        local.value = local.value.copy(message = "「$label」还在开发中")
+    }
+
     private data class LocalState(
         val selectedTrackIds: List<String> = emptyList(),
         val isImporting: Boolean = false,

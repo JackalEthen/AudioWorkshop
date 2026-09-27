@@ -1,0 +1,432 @@
+package cn.qishui.tool.media.effect
+
+import kotlin.math.PI
+import kotlin.math.abs
+import kotlin.math.cos
+import kotlin.math.max
+import kotlin.math.sin
+import kotlin.math.sqrt
+
+/** 效果参数描述，UI 照着它自动生成滑杆，不用给每个功能单独写界面。 */
+data class EffectParam(
+    val id: String,
+    val label: String,
+    val min: Float,
+    val max: Float,
+    val default: Float,
+    val step: Float = 0.01f,
+    val unit: String = "",
+)
+
+/**
+ * 全部音效运算。约定：能原地改就原地改，返回 null 表示没变；
+ * 需要新缓冲的返回新对象。
+ */
+object PcmEffects {
+
+    fun reverse(buffer: PcmBuffer): PcmBuffer {
+        val channels = buffer.channels
+        val samples = buffer.samples
+        var left = 0
+        var right = buffer.frames - 1
+        while (left < right) {
+            for (channel in 0 until channels) {
+                val a = left * channels + channel
+                val b = right * channels + channel
+                val tmp = samples[a]
+                samples[a] = samples[b]
+                samples[b] = tmp
+            }
+            left++
+            right--
+        }
+        return buffer
+    }
+
+    fun invertPhase(buffer: PcmBuffer): PcmBuffer {
+        for (index in buffer.samples.indices) {
+            buffer.samples[index] = (-buffer.samples[index].toInt())
+                .coerceIn(PcmBuffer.SHORT_MIN, PcmBuffer.SHORT_MAX).toShort()
+        }
+        return buffer
+    }
+
+    /** 声道分离： Karaoke 去掉中置，或只保留中置。 */
+    fun stereoSplit(buffer: PcmBuffer, keep: Int): PcmBuffer {
+        if (buffer.channels != 2) return buffer
+        val samples = buffer.samples
+        for (frame in 0 until buffer.frames) {
+            val base = frame * 2
+            val left = samples[base].toInt()
+            val right = samples[base + 1].toInt()
+            val mid = (left + right) / 2
+            val side = (left - right) / 2
+            val outLeft: Int
+            val outRight: Int
+            when (keep) {
+                KEEP_SIDE -> {
+                    outLeft = side
+                    outRight = -side
+                }
+
+                KEEP_MID -> {
+                    outLeft = mid
+                    outRight = mid
+                }
+
+                else -> {
+                    outLeft = left
+                    outRight = right
+                }
+            }
+            samples[base] = outLeft.coerceIn(PcmBuffer.SHORT_MIN, PcmBuffer.SHORT_MAX).toShort()
+            samples[base + 1] = outRight.coerceIn(PcmBuffer.SHORT_MIN, PcmBuffer.SHORT_MAX).toShort()
+        }
+        return buffer
+    }
+
+    /** 立体声环绕：M/S 矩阵拉宽声场，width 越大越宽。 */
+    fun stereoWiden(buffer: PcmBuffer, width: Float): PcmBuffer {
+        if (buffer.channels != 2) return buffer
+        val factor = width.coerceIn(0f, 1f) * MAX_WIDTH
+        val samples = buffer.samples
+        for (frame in 0 until buffer.frames) {
+            val base = frame * 2
+            val mid = (samples[base].toInt() + samples[base + 1].toInt()) / 2f
+            val side = (samples[base].toInt() - samples[base + 1].toInt()) / 2f * factor
+            samples[base] = (mid + side).toInt().coerceIn(PcmBuffer.SHORT_MIN, PcmBuffer.SHORT_MAX).toShort()
+            samples[base + 1] = (mid - side).toInt().coerceIn(PcmBuffer.SHORT_MIN, PcmBuffer.SHORT_MAX).toShort()
+        }
+        return buffer
+    }
+
+    /** 立体声合成：把左右按比例混回中间，pan 决定偏向。 */
+    fun stereoMix(buffer: PcmBuffer, pan: Float): PcmBuffer {
+        if (buffer.channels != 2) return buffer
+        val shift = (pan.coerceIn(-1f, 1f) * MAX_PAN)
+        val samples = buffer.samples
+        for (frame in 0 until buffer.frames) {
+            val base = frame * 2
+            val left = samples[base].toFloat()
+            val right = samples[base + 1].toFloat()
+            samples[base] = (left * (0.5f + shift)).toInt()
+                .coerceIn(PcmBuffer.SHORT_MIN, PcmBuffer.SHORT_MAX).toShort()
+            samples[base + 1] = (right * (0.5f - shift)).toInt()
+                .coerceIn(PcmBuffer.SHORT_MIN, PcmBuffer.SHORT_MAX).toShort()
+        }
+        return buffer
+    }
+
+    /** 回声：延迟 + 反馈，原声和回声按 mix 混合。 */
+    fun echo(buffer: PcmBuffer, delayMs: Float, feedback: Float, mix: Float): PcmBuffer {
+        val delayFrames = ((delayMs.coerceIn(20f, 2000f) / 1000f) * buffer.sampleRateHz).toInt()
+            .coerceAtLeast(1)
+        val fb = feedback.coerceIn(0f, 0.95f)
+        val wet = mix.coerceIn(0f, 1f)
+        val channels = buffer.channels
+        val line = FloatArray(delayFrames * channels)
+        val samples = buffer.samples
+        var index = 0
+        for (frame in 0 until buffer.frames) {
+            for (channel in 0 until channels) {
+                val slot = index + channel
+                val delayed = line[slot]
+                val dry = samples[frame * channels + channel]
+                val value = dry * (1f - wet) + delayed * wet
+                samples[frame * channels + channel] =
+                    value.toInt().coerceIn(PcmBuffer.SHORT_MIN, PcmBuffer.SHORT_MAX).toShort()
+                line[slot] = value * fb + dry * (1f - fb) * 0.35f
+            }
+            index = (index + channels) % line.size
+        }
+        return buffer
+    }
+
+    /** 合唱：几路不同延时的干声叠加制造厚度。 */
+    fun choir(buffer: PcmBuffer, spreadMs: Float, mix: Float): PcmBuffer {
+        val rate = buffer.sampleRateHz
+        val channels = buffer.channels
+        val wet = mix.coerceIn(0f, 1f)
+        val base = (spreadMs.coerceIn(5f, 80f) / 1000f) * rate
+        val voices = listOf(base.toInt(), (base * 1.5f).toInt(), (base * 2f).toInt())
+            .map { it.coerceAtLeast(1) }
+        val gains = floatArrayOf(0.7f, 0.5f, 0.35f)
+        val samples = buffer.samples
+        val out = ShortArray(samples.size)
+        for (frame in 0 until buffer.frames) {
+            for (channel in 0 until channels) {
+                val dry = samples[frame * channels + channel].toFloat()
+                var sum = 0f
+                voices.forEachIndexed { index, delay ->
+                    val from = frame - delay
+                    if (from >= 0) sum += samples[from * channels + channel].toFloat() * gains[index]
+                }
+                val value = dry * (1f - wet) + (sum / voices.size) * wet
+                out[frame * channels + channel] =
+                    value.toInt().coerceIn(PcmBuffer.SHORT_MIN, PcmBuffer.SHORT_MAX).toShort()
+            }
+        }
+        return PcmBuffer(buffer.sampleRateHz, buffer.channels, out)
+    }
+
+    /** 混响：4 组梳状滤波 + 2 组全通，Schroeder 结构。 */
+    fun reverb(buffer: PcmBuffer, roomSize: Float, mix: Float): PcmBuffer {
+        val size = roomSize.coerceIn(0f, 1f)
+        val wet = mix.coerceIn(0f, 1f)
+        val rate = buffer.sampleRateHz
+        val channels = buffer.channels
+        val combDelays = intArrayOf(
+            (COMB_BASE * (1f + size)).toInt().coerceAtLeast(1),
+            (COMB_BASE * 1.37f * (1f + size)).toInt().coerceAtLeast(1),
+            (COMB_BASE * 1.73f * (1f + size)).toInt().coerceAtLeast(1),
+            (COMB_BASE * 2.11f * (1f + size)).toInt().coerceAtLeast(1),
+        )
+        val feedback = 0.72f + size * 0.24f
+        val combs = Array(combDelays.size * channels) { FloatArray(combDelays[it / channels]) }
+        val allpassA = FloatArray((rate * 0.005f).toInt().coerceAtLeast(1) * channels)
+        val allpassB = FloatArray((rate * 0.0017f).toInt().coerceAtLeast(1) * channels)
+        val out = ShortArray(buffer.samples.size)
+        val samples = buffer.samples
+        val combIndex = IntArray(channels)
+        for (frame in 0 until buffer.frames) {
+            for (channel in 0 until channels) {
+                val dry = samples[frame * channels + channel].toFloat()
+                var acc = 0f
+                for (voice in combDelays.indices) {
+                    val line = combs[voice * channels + channel]
+                    val slot = combIndex[channel] % line.size
+                    acc += line[slot]
+                    line[slot] = dry + acc * feedback
+                    combIndex[channel] = (combIndex[channel] + 1) % line.size
+                }
+                acc /= combDelays.size
+                acc = allpass(acc, allpassA, channel, 0.5f + size * 0.3f)
+                acc = allpass(acc, allpassB, channel, 0.5f)
+                val value = dry * (1f - wet) + acc * wet
+                out[frame * channels + channel] =
+                    value.toInt().coerceIn(PcmBuffer.SHORT_MIN, PcmBuffer.SHORT_MAX).toShort()
+            }
+        }
+        return PcmBuffer(buffer.sampleRateHz, buffer.channels, out)
+    }
+
+    private fun allpass(input: Float, line: FloatArray, channel: Int, gain: Float): Float {
+        if (line.size <= channel) return input
+        val slot = channel % line.size
+        val buffered = line[slot]
+        val output = -input + buffered
+        line[slot] = input + buffered * gain
+        return output
+    }
+
+    /**
+     * 三段均衡：低频 / 中频 / 高频各走一个稳定的二阶滤波器再叠加。
+     * 不用 shelf 系数，那套公式在低频增益下会退化成近似临界稳定。
+     */
+    fun equalizer(buffer: PcmBuffer, lowDb: Float, midDb: Float, highDb: Float): PcmBuffer {
+        val rate = buffer.sampleRateHz.toFloat()
+        val channels = buffer.channels
+        val lowGain = dbToGain(lowDb)
+        val midGain = dbToGain(midDb)
+        val highGain = dbToGain(highDb)
+        val lowPass = Biquad.lowPass(rate, BAND_LOW_HZ, Q_FACTOR)
+        val highPass = Biquad.highPass(rate, BAND_HIGH_HZ, Q_FACTOR)
+        val states = Array(channels * 2) { Biquad.State() }
+        val samples = buffer.samples
+        for (frame in 0 until buffer.frames) {
+            for (channel in 0 until channels) {
+                val index = frame * channels + channel
+                val lowState = states[channel * 2]
+                val highState = states[channel * 2 + 1]
+                val input = samples[index].toFloat() / SAMPLE_SCALE
+                val low = Biquad.process(input, lowPass, lowState)
+                val high = Biquad.process(input, highPass, highState)
+                val mid = input - low - high
+                val output = (low * lowGain + mid * midGain + high * highGain) * SAMPLE_SCALE
+                samples[index] = output.toInt()
+                    .coerceIn(PcmBuffer.SHORT_MIN, PcmBuffer.SHORT_MAX).toShort()
+            }
+        }
+        return buffer
+    }
+
+    private fun dbToGain(db: Float): Float =
+        Math.pow(10.0, (db.coerceIn(-24f, 24f) / 20.0)).toFloat()
+
+    /** 收音机音效：带通 300-3400Hz + 轻微削波。 */
+    fun radioFx(buffer: PcmBuffer, amount: Float): PcmBuffer {
+        val rate = buffer.sampleRateHz.toFloat()
+        val strength = amount.coerceIn(0f, 1f)
+        val highPass = Biquad.highPass(rate, RADIO_LOW_HZ, Q_FACTOR)
+        val lowPass = Biquad.lowPass(rate, RADIO_HIGH_HZ, Q_FACTOR)
+        val states = Array(buffer.channels) { Biquad.State() }
+        val samples = buffer.samples
+        for (frame in 0 until buffer.frames) {
+            for (channel in 0 until buffer.channels) {
+                val index = frame * buffer.channels + channel
+                val state = states[channel]
+                var value = samples[index].toFloat() / SAMPLE_SCALE
+                value = Biquad.process(value, highPass, state)
+                value = Biquad.process(value, lowPass, state)
+                value = value * (1f + strength * 0.6f)
+                value = kotlin.math.tanh(value * (1f + strength * 2.5f))
+                samples[index] = (value * SAMPLE_SCALE).toInt()
+                    .coerceIn(PcmBuffer.SHORT_MIN, PcmBuffer.SHORT_MAX).toShort()
+            }
+        }
+        return buffer
+    }
+
+    /** 音频修复：去直流 + 削波点插值。 */
+    fun repair(buffer: PcmBuffer, strength: Float): PcmBuffer {
+        val amount = strength.coerceIn(0f, 1f)
+        val channels = buffer.channels
+        val samples = buffer.samples
+        for (channel in 0 until channels) {
+            var mean = 0.0
+            var count = 0
+            for (frame in 0 until buffer.frames) {
+                mean += samples[frame * channels + channel]
+                count++
+            }
+            val offset = if (count == 0) 0 else (mean / count).toInt()
+            for (frame in 0 until buffer.frames) {
+                val index = frame * channels + channel
+                samples[index] = (samples[index] - (offset * amount).toInt())
+                    .coerceIn(PcmBuffer.SHORT_MIN, PcmBuffer.SHORT_MAX).toShort()
+            }
+        }
+        // 削波点用前后样本线性插值抹平
+        for (frame in 1 until buffer.frames - 1) {
+            for (channel in 0 until channels) {
+                val index = frame * channels + channel
+                val value = samples[index].toInt()
+                val clipped = abs(value) >= PcmBuffer.SHORT_MAX - CLIP_MARGIN
+                if (!clipped) continue
+                val previous = samples[index - channels].toInt()
+                val next = samples[index + channels].toInt()
+                samples[index] = ((previous + next) / 2)
+                    .coerceIn(PcmBuffer.SHORT_MIN, PcmBuffer.SHORT_MAX).toShort()
+            }
+        }
+        return buffer
+    }
+
+    /** 去除头尾：按阈值找首尾有声位置，低于最小时长就整体保留。 */
+    fun trimSilence(buffer: PcmBuffer, thresholdDb: Float, minSilenceMs: Float): PcmBuffer {
+        val threshold = Math.pow(10.0, (thresholdDb.coerceIn(-60f, 0f) / 20.0)).toFloat() * Short.MAX_VALUE
+        val minSilenceFrames = ((minSilenceMs.coerceIn(0f, 5000f) / 1000f) * buffer.sampleRateHz).toInt()
+        val channels = buffer.channels
+        var first = -1
+        var last = -1
+        for (frame in 0 until buffer.frames) {
+            if (!frameIsSilent(buffer, frame, channels, threshold)) {
+                if (first < 0) first = frame
+                last = frame
+            }
+        }
+        if (first < 0 || last <= first) return buffer
+        val from = max(0, first - minSilenceFrames)
+        val to = minOf(buffer.frames, last + minSilenceFrames + 1)
+        if (from == 0 && to == buffer.frames) return buffer
+        return buffer.slice(from, to)
+    }
+
+    private fun frameIsSilent(buffer: PcmBuffer, frame: Int, channels: Int, threshold: Float): Boolean {
+        val base = frame * channels
+        for (channel in 0 until channels) {
+            if (abs(buffer.samples[base + channel].toInt()) > threshold) return false
+        }
+        return true
+    }
+
+    private data class Voice(val delayFrames: Long, val gain: Float)
+
+    const val KEEP_ORIGINAL = 0
+    const val KEEP_SIDE = 1
+    const val KEEP_MID = 2
+    private const val MAX_WIDTH = 1.6f
+    private const val MAX_PAN = 0.5f
+    private const val COMB_BASE = 1200
+    private const val BAND_LOW_HZ = 250f
+    private const val BAND_HIGH_HZ = 4_000f
+    private const val Q_FACTOR = 0.7071f
+    private const val RADIO_LOW_HZ = 300f
+    private const val RADIO_HIGH_HZ = 3_400f
+    private const val CLIP_MARGIN = 64
+    private const val SAMPLE_SCALE = 32_768f
+}
+
+/** RBJ cookbook 双二阶滤波器。 */
+object Biquad {
+    class State {
+        var x1 = 0f
+        var x2 = 0f
+        var y1 = 0f
+        var y2 = 0f
+    }
+
+    class Coefficients(
+        val b0: Float,
+        val b1: Float,
+        val b2: Float,
+        val a1: Float,
+        val a2: Float,
+    )
+
+    fun process(input: Float, coefficients: Coefficients, state: State): Float {
+        val output = coefficients.b0 * input + coefficients.b1 * state.x1 + coefficients.b2 * state.x2 -
+            coefficients.a1 * state.y1 - coefficients.a2 * state.y2
+        state.x2 = state.x1
+        state.x1 = input
+        state.y2 = state.y1
+        state.y1 = output
+        return output
+    }
+
+    fun peaking(rate: Float, hz: Float, q: Float, gainDb: Float): Coefficients {
+        val amplitude = Math.pow(10.0, (gainDb / 40.0)).toFloat()
+        val omega = 2f * PI.toFloat() * hz / rate
+        val sinOmega = sin(omega)
+        val cosOmega = cos(omega)
+        val alpha = sinOmega / (2f * q)
+        val a0 = 1f + alpha / amplitude
+        return Coefficients(
+            b0 = (1f + alpha * amplitude) / a0,
+            b1 = (-2f * cosOmega) / a0,
+            b2 = (1f - alpha * amplitude) / a0,
+            a1 = (-2f * cosOmega) / a0,
+            a2 = (1f - alpha / amplitude) / a0,
+        )
+    }
+
+    fun highPass(rate: Float, hz: Float, q: Float): Coefficients {
+        val omega = 2f * PI.toFloat() * hz / rate
+        val sinOmega = sin(omega)
+        val cosOmega = cos(omega)
+        val alpha = sinOmega / (2f * q)
+        val a0 = 1f + alpha
+        return Coefficients(
+            b0 = ((1f + cosOmega) / 2f) / a0,
+            b1 = (-(1f + cosOmega)) / a0,
+            b2 = ((1f + cosOmega) / 2f) / a0,
+            a1 = (-2f * cosOmega) / a0,
+            a2 = (1f - alpha) / a0,
+        )
+    }
+
+    fun lowPass(rate: Float, hz: Float, q: Float): Coefficients {
+        val omega = 2f * PI.toFloat() * hz / rate
+        val sinOmega = sin(omega)
+        val cosOmega = cos(omega)
+        val alpha = sinOmega / (2f * q)
+        val a0 = 1f + alpha
+        return Coefficients(
+            b0 = ((1f - cosOmega) / 2f) / a0,
+            b1 = (1f - cosOmega) / a0,
+            b2 = ((1f - cosOmega) / 2f) / a0,
+            a1 = (-2f * cosOmega) / a0,
+            a2 = (1f - alpha) / a0,
+        )
+    }
+}
