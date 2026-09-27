@@ -26,6 +26,7 @@ data class Id3v2Tags(
     val artworkMimeType: String?,
     val unsyncedLyrics: String?,
     val syncedLyrics: List<SyncedText>,
+    val comment: String? = null,
 )
 
 object Id3v2Codec {
@@ -47,6 +48,7 @@ object Id3v2Codec {
         addTextFrame(frames, "TPE1", metadata.artist)
         addTextFrame(frames, "TALB", metadata.album)
         addTextFrame(frames, "TDRC", metadata.year)
+        addTextFrame(frames, "COMM", metadata.comment)
         val artwork = metadata.artworkBytes
         if (artwork != null && artwork.isNotEmpty()) {
             frames += apicFrame(metadata.artworkMimeType?.takeIf { it.isNotBlank() } ?: "image/jpeg", artwork)
@@ -103,6 +105,17 @@ object Id3v2Codec {
 
     private fun addTextFrame(frames: MutableList<ByteArray>, id: String, value: String?) {
         val text = value?.takeIf { it.isNotBlank() } ?: return
+        if (id == "COMM") {
+            // COMM 帧正文：编码 + 语言 + 短描述(空) + 正文
+            frames += frame(
+                id,
+                byteArrayOf(ENCODING_UTF16.toByte()) +
+                    LANGUAGE.toByteArray(ISO_8859_1) +
+                    BOM +
+                    text.toByteArray(UTF_16LE),
+            )
+            return
+        }
         frames += frame(id, byteArrayOf(ENCODING_UTF16.toByte()) + BOM + text.toByteArray(UTF_16LE))
     }
 
@@ -318,6 +331,7 @@ object Id3v2Codec {
         private var artworkMimeType: String? = null
         private var unsyncedLyrics: String? = null
         private var syncedLyrics: List<SyncedText> = emptyList()
+        private var comment: String? = null
 
         fun accept(major: Int, id: String, data: ByteArray) {
             when (canonicalId(major, id)) {
@@ -325,6 +339,8 @@ object Id3v2Codec {
                 "TPE1" -> textOf(data)?.let { artist = it }
                 "TALB" -> textOf(data)?.let { album = it }
                 "TDRC" -> textOf(data)?.let { date = it }
+                // COMM 的正文是：编码 + 语言3字节 + 短描述 + 空终止 + 正文
+                "COMM" -> textOf(data, skipLanguage = true)?.let { comment = it }
                 "APIC" -> acceptApic(major, data)
                 "USLT" -> parseUnsyncedLyrics(data)?.let { unsyncedLyrics = it }
                 "SYLT" -> syncedLyrics = parseSyncedLyrics(major, data)
@@ -340,6 +356,7 @@ object Id3v2Codec {
             artworkMimeType = artworkMimeType,
             unsyncedLyrics = unsyncedLyrics,
             syncedLyrics = syncedLyrics,
+            comment = comment,
         )
 
         private fun acceptApic(major: Int, data: ByteArray) {
@@ -395,9 +412,12 @@ object Id3v2Codec {
         }
     }
 
-    private fun textOf(data: ByteArray): String? {
+    private fun textOf(data: ByteArray, skipLanguage: Boolean = false): String? {
         if (data.isEmpty()) return null
-        return decodeString(data, 1, data[0].toInt() and 0xFF, terminated = true)
+        val encoding = data[0].toInt() and 0xFF
+        val start = if (skipLanguage) 4 else 1
+        if (data.size <= start) return null
+        return decodeString(data, start, encoding, terminated = true)
             .text
             .trim()
             .takeIf { it.isNotEmpty() }

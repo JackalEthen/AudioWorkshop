@@ -23,9 +23,10 @@ data class FeatureEntry(
     val operation: EditOperation? = null,
     val effectId: String? = null,
     val videoTool: String? = null,
+    val tool: String? = null,
 ) {
     val isReady: Boolean
-        get() = operation != null || effectId != null || videoTool != null
+        get() = operation != null || effectId != null || videoTool != null || tool != null
 }
 
 /** 一张卡片塞 4 个，剩余的单独成卡，和参考图一致。 */
@@ -49,6 +50,7 @@ val FeatureCatalog: List<FeatureEntry> = listOf(
     entry("tts", "文字转音频", FeatureGroup.COMMON, R.drawable.ic_text),
     entry("asr", "音频转文字", FeatureGroup.COMMON, R.drawable.ic_mic),
     entry("lrc", "Lrc歌词编辑", FeatureGroup.COMMON, R.drawable.ic_captions, EditOperation.LYRIC_OFFSET),
+    entry("metadata", "修改音乐信息", FeatureGroup.COMMON, R.drawable.ic_type, tool = "metadata"),
     entry("loudness", "响度标准化", FeatureGroup.COMMON, R.drawable.ic_gauge, effectId = "loudness"),
     entry("opus", "Opus解码", FeatureGroup.COMMON, R.drawable.ic_file_audio),
 
@@ -83,6 +85,7 @@ private fun entry(
     operation: EditOperation? = null,
     effectId: String? = null,
     videoTool: String? = null,
+    tool: String? = null,
 ) = FeatureEntry(
     id = id,
     label = label,
@@ -91,4 +94,5 @@ private fun entry(
     operation = operation,
     effectId = effectId,
     videoTool = videoTool,
+    tool = tool,
 )

@@ -52,6 +52,7 @@ fun EditHomeScreen(
     onOpenRecords: () -> Unit,
     onOpenEffect: (String) -> Unit,
     onExtractVideoAudio: () -> Unit,
+    onOpenMetadata: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -94,7 +95,8 @@ fun EditHomeScreen(
                             when {
                                 operation != null -> onOpenWorkspace(operation, "", emptyList())
                                 feature.effectId != null -> onOpenEffect(feature.effectId)
-                                feature.videoTool == "extract_audio" -> onExtractVideoAudio()
+                                    feature.videoTool == "extract_audio" -> onExtractVideoAudio()
+                                    feature.tool == "metadata" -> onOpenMetadata()
                                 else -> viewModel.notifyPending(feature.label)
                             }
                         },

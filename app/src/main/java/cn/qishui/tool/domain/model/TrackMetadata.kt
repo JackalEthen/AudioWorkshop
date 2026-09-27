@@ -7,4 +7,5 @@ data class TrackMetadata(
     val year: String?,
     val artworkBytes: ByteArray?,
     val artworkMimeType: String?,
+    val comment: String? = null,
 )

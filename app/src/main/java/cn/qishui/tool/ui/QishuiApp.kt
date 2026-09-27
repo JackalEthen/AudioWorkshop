@@ -44,6 +44,8 @@ import cn.qishui.tool.app.AppContainer
 import cn.qishui.tool.data.media.AudioFileProbe
 import cn.qishui.tool.feature.effect.EffectWorkspaceScreen
 import cn.qishui.tool.feature.effect.EffectWorkspaceViewModel
+import cn.qishui.tool.feature.metadata.MetadataScreen
+import cn.qishui.tool.feature.metadata.MetadataViewModel
 import java.io.File
 import cn.qishui.tool.domain.model.AppSettings
 import cn.qishui.tool.domain.model.EditOperation
@@ -177,6 +179,21 @@ fun QishuiApp(
                             onOpenRecords = { navController.navigate(EditDestination.RecordsRoute) },
                             onOpenEffect = { effectId -> navController.navigate("effect/$effectId") },
                             onExtractVideoAudio = { videoAudioPicker.launch(arrayOf("video/*")) },
+                            onOpenMetadata = { navController.navigate("metadata") },
+                        )
+                    }
+                    composable("metadata") {
+                        val factory = remember(container) {
+                            MetadataViewModel.factory(
+                                container.sourceTrackRepository,
+                                AudioFileProbe(),
+                                container.exportTargetWriter,
+                            )
+                        }
+                        val metadataViewModel: MetadataViewModel = viewModel(factory = factory)
+                        MetadataScreen(
+                            viewModel = metadataViewModel,
+                            onBack = { navController.popBackStack() },
                         )
                     }
                     composable("effect/{effectId}") { entry ->
