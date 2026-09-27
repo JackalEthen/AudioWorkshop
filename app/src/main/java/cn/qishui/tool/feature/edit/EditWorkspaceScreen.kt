@@ -4,6 +4,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -45,6 +46,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cn.qishui.tool.domain.model.EditMode
 import cn.qishui.tool.domain.model.EditOperation
 import cn.qishui.tool.domain.model.SourceTrack
+import cn.qishui.tool.domain.model.JoinTransition
 import cn.qishui.tool.domain.model.WaveformPeaks
 import cn.qishui.tool.feature.edit.lyrics.LyricsPanel
 import cn.qishui.tool.feature.edit.waveform.WaveformCanvas
@@ -484,11 +486,60 @@ fun EditWorkspaceScreen(
                                 }
                             }
 
-                            EditOperation.JOIN -> JoinedTrackChips(
-                                tracks = availableTracks,
-                                joinedIds = state.joinedTrackIds,
-                                onToggle = viewModel::toggleJoinedTrack,
-                            )
+                            EditOperation.JOIN -> {
+                                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    SegmentedControl(
+                                        options = listOf("正常", "淡入淡出", "稳定"),
+                                        selectedIndex = when (state.joinTransition) {
+                                            JoinTransition.NORMAL -> 0
+                                            JoinTransition.FADE -> 1
+                                            JoinTransition.STABLE -> 2
+                                        },
+                                        onSelect = {
+                                            viewModel.setJoinTransition(
+                                                when (it) {
+                                                    0 -> JoinTransition.NORMAL
+                                                    1 -> JoinTransition.FADE
+                                                    else -> JoinTransition.STABLE
+                                                },
+                                            )
+                                        },
+                                    )
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        SelectBox(
+                                            selected = state.previewRealEffect,
+                                            description = "试听真实效果",
+                                            onToggle = viewModel::togglePreviewRealEffect,
+                                        )
+                                        Text(
+                                            text = "衔接时间",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                        Box(modifier = Modifier.weight(1f)) {
+                                            LongField(
+                                                label = "",
+                                                value = state.transitionMs,
+                                                onValueChange = viewModel::setTransitionMs,
+                                            )
+                                        }
+                                        Text(
+                                            text = "秒",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                }
+                                JoinedTrackChips(
+                                    tracks = availableTracks,
+                                    joinedIds = state.joinedTrackIds,
+                                    onToggle = viewModel::toggleJoinedTrack,
+                                )
+                            }
 
                             EditOperation.FADE_IN, EditOperation.FADE_OUT -> {
                                 LongField("淡入 (ms)", state.fadeInMs, viewModel::setFadeInMs)

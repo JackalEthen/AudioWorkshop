@@ -12,6 +12,7 @@ import cn.qishui.tool.data.encoder.EncoderClient
 import cn.qishui.tool.data.local.MIGRATION_1_2
 import cn.qishui.tool.data.local.MIGRATION_2_3
 import cn.qishui.tool.data.local.MIGRATION_3_4
+import cn.qishui.tool.data.local.MIGRATION_4_5
 import cn.qishui.tool.data.local.QishuiDatabase
 import cn.qishui.tool.data.media.AudioFileProbe
 import cn.qishui.tool.data.media.LocalAudioImporter
@@ -55,7 +56,7 @@ class AppContainer(context: Context) {
         applicationContext,
         QishuiDatabase::class.java,
         "qishui.db",
-    ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4).build()
+    ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5).build()
     val resolver: MusicResolver = QsmusicMusicResolver(
         shareLinkExtractor = ShareLinkExtractor(),
         apiClient = QsmusicApiClient(okHttpClient),

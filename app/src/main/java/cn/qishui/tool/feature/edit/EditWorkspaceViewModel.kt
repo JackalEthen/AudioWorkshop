@@ -21,6 +21,7 @@ import cn.qishui.tool.domain.media.ExportSource
 import cn.qishui.tool.domain.model.EditMode
 import cn.qishui.tool.domain.model.EditOperation
 import cn.qishui.tool.domain.model.EditProject
+import cn.qishui.tool.domain.model.JoinTransition
 import cn.qishui.tool.domain.model.EditTimeRange
 import cn.qishui.tool.domain.model.EditTimeSegment
 import cn.qishui.tool.domain.model.ExportPackage
@@ -69,6 +70,9 @@ data class EditWorkspaceUiState(
     val lyricOffsetMs: Long = 0L,
     val joinedTrackIds: List<String> = emptyList(),
     val joinedTracks: List<SourceTrack> = emptyList(),
+    val joinTransition: JoinTransition = JoinTransition.NORMAL,
+    val transitionMs: Long = 2000L,
+    val previewRealEffect: Boolean = true,
     val segments: List<EditTimeSegment> = emptyList(),
     val outputDurationUs: Long = 0L,
     val lyrics: LyricsTrack = LyricsTrack.EMPTY,
@@ -206,6 +210,17 @@ class EditWorkspaceViewModel(
     fun setFadeInMs(value: Long) = mutate { it.copy(fadeInMs = value.coerceAtLeast(0L)) }
     fun setFadeOutMs(value: Long) = mutate { it.copy(fadeOutMs = value.coerceAtLeast(0L)) }
     fun setLyricOffsetMs(value: Long) = mutate { it.copy(lyricOffsetMs = value) }
+
+    fun setJoinTransition(value: JoinTransition) =
+        mutableUiState.update { it.copy(joinTransition = value) }
+
+    fun setTransitionMs(value: Long) =
+        mutableUiState.update { it.copy(transitionMs = value.coerceIn(0L, 10_000L)) }
+
+    fun togglePreviewRealEffect() {
+        val current = mutableUiState.value
+        mutableUiState.update { current.copy(previewRealEffect = !current.previewRealEffect) }
+    }
 
     fun setStartMs(value: Long) = mutate { it.copy(startMs = value.coerceIn(0L, it.endMs)) }
 

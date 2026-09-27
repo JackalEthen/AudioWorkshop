@@ -12,6 +12,12 @@ data class EditTimeSegment(
     val outputEndUs: Long,
 )
 
+enum class JoinTransition {
+    NORMAL,
+    FADE,
+    STABLE,
+}
+
 enum class EditMode {
     KEEP_SELECTED,
     REMOVE_SELECTED,
@@ -37,6 +43,8 @@ data class EditProject(
     val fadeOutMs: Long?,
     val lyricOffsetMs: Long?,
     val joinedTrackIds: List<String>,
+    val joinTransition: JoinTransition = JoinTransition.NORMAL,
+    val transitionMs: Long = 0L,
     val createdAtEpochMillis: Long,
     val updatedAtEpochMillis: Long,
 )

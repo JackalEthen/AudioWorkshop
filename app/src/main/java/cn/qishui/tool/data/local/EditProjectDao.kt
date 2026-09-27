@@ -22,6 +22,8 @@ data class EditProjectEntity(
     val fade_out_ms: Long?,
     val lyric_offset_ms: Long?,
     val joined_track_ids: String,
+    val join_transition: String,
+    val transition_ms: Long,
     val created_at: Long,
     val updated_at: Long,
 )
@@ -69,6 +71,8 @@ internal fun EditProject.toEntity(): EditProjectEntity = EditProjectEntity(
     lyric_offset_ms = lyricOffsetMs,
     joined_track_ids = joinedTrackIds.joinToString(","),
     created_at = createdAtEpochMillis,
+      join_transition = joinTransition.name,
+      transition_ms = transitionMs,
     updated_at = updatedAtEpochMillis,
 )
 

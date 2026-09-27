@@ -74,3 +74,11 @@ val MIGRATION_3_4 = object : Migration(3, 4) {
         db.execSQL("ALTER TABLE `source_tracks` ADD COLUMN `album` TEXT")
     }
 }
+
+
+val MIGRATION_4_5 = object : Migration(4, 5) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `edit_projects` ADD COLUMN `join_transition` TEXT NOT NULL DEFAULT 'NORMAL'")
+        db.execSQL("ALTER TABLE `edit_projects` ADD COLUMN `transition_ms` INTEGER NOT NULL DEFAULT 0")
+    }
+}
