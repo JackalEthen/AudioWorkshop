@@ -21,23 +21,6 @@ android {
         ndk {
             abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")
         }
-
-        externalNativeBuild {
-            cmake {
-                cppFlags += "-O3"
-                arguments += listOf(
-                    "-DANDROID_STL=none",
-                    "-DANDROID_ARM_NEON=TRUE",
-                )
-            }
-        }
-    }
-
-    externalNativeBuild {
-        cmake {
-            path = file("src/main/cpp/CMakeLists.txt")
-            version = "3.22.1"
-        }
     }
 
     packaging {
@@ -72,6 +55,8 @@ android {
 }
 
 dependencies {
+    implementation(project(":audiofx"))
+
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)

@@ -42,7 +42,10 @@ foreach ($name in $Names) {
         if ($tag -eq "path" -and $d) {
             $shapes.Add((New-Path $d))
         } elseif ($tag -eq "circle" -and $cx -and $cy -and $r) {
-            $shapes.Add((New-Path ("M$cx $cy A$r $r 0 1 0 $cx $cy A$r $r 0 1 0 $cx $cy")))
+            # 同点两段弧画不出圆，必须走左右两个半圆
+            $left = [double]$cx - [double]$r
+            $right = [double]$cx + [double]$r
+            $shapes.Add((New-Path ("M$left $cy A$r $r 0 1 0 $right $cy A$r $r 0 1 0 $left $cy Z")))
         } elseif ($tag -eq "rect" -and $x -ne "" -and $w) {
             $x2 = [double]$x + [double]$w
             $y2 = [double]$y + [double]$h

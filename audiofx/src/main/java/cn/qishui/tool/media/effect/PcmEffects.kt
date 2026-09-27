@@ -385,8 +385,8 @@ object PcmEffects {
     }
 
     /**
-     * 变速变调：WSOLA 做时间拉伸，再用重采样移调。
-     * ponytail: WSOLA 对 0.5x~2x 稳定，超出会有明显金属味；真要高质量得换 rubberband 之类的相位声码器。
+     * 变速变调走 Signalsmith Stretch（MIT，源自 BBC R&D 的 ADC22 论文），
+     * 一次处理同时改变时长和音高，带 tonality limit 保住音色。
      */
     fun speedPitch(
         buffer: PcmBuffer,
@@ -394,101 +394,34 @@ object PcmEffects {
         semitones: Float,
     ): PcmBuffer {
         val factor = speed.coerceIn(MIN_SPEED, MAX_SPEED)
-        val stretched = if (kotlin.math.abs(factor - 1f) < 0.001f) buffer else wsola(buffer, factor)
-        if (kotlin.math.abs(semitones) < 0.01f) return stretched
-        val ratio = Math.pow(2.0, (semitones / SEMITONES_PER_OCTAVE)).toFloat()
-        return resampleLinear(stretched, ratio)
+        if (kotlin.math.abs(factor - 1f) < 0.001f && kotlin.math.abs(semitones) < 0.01f) return buffer
+        val output = ShortArray(StretchBridge.maxOutputSamples(buffer.frames, buffer.channels))
+        val written = StretchBridge.create().process(
+            pcm = buffer.samples,
+            frames = buffer.frames,
+            channels = buffer.channels,
+            sampleRateHz = buffer.sampleRateHz,
+            speed = factor,
+            semitones = semitones,
+            output = output,
+        )
+        check(written > 0) { "变速变调失败" }
+        return PcmBuffer(
+            sampleRateHz = buffer.sampleRateHz,
+            channels = buffer.channels,
+            samples = output.copyOf(written * buffer.channels),
+        )
     }
 
-    /** WSOLA：用 32ms 窗、16ms 跳步，按互相关找最对齐的拼接点。 */
-    private fun wsola(buffer: PcmBuffer, factor: Float): PcmBuffer {
-        val channels = buffer.channels
-        val window = WSOLA_WINDOW * channels
-        val synthesisHop = WSOLA_HOP * channels
-        val analysisHop = (WSOLA_HOP * factor).toInt().coerceAtLeast(1) * channels
-        val searchRadius = (WSOLA_SEARCH * channels).coerceAtLeast(1)
-        val windowCurve = hann(window)
-        val input = buffer.samples
-        val frames = buffer.frames
-        if (frames < WSOLA_WINDOW * 2) return buffer
-        val outFrames = (frames / factor).toInt().coerceAtLeast(1)
-        val out = ShortArray(outFrames * channels)
-        val searchBuffer = FloatArray(searchRadius * 2 + 1)
-
-        var analysisPosition = 0
-        var previousTail = FloatArray(channels)
-        var produced = 0
-        while (produced + WSOLA_WINDOW <= outFrames) {
-            var bestOffset = 0
-            var bestScore = -Float.MAX_VALUE
-            val natural = (produced.toFloat() / factor).toInt()
-            val from = (natural - WSOLA_SEARCH).coerceAtLeast(0)
-            val to = (natural + WSOLA_SEARCH).coerceAtMost((frames - WSOLA_WINDOW * 2).coerceAtLeast(0))
-            for (offset in from..to) {
-                var score = 0f
-                for (channel in 0 until channels) {
-                    score += (previousTail[channel] *
-                        input[(offset * channels) + channel].toFloat())
-                }
-                if (score > bestScore) {
-                    bestScore = score
-                    bestOffset = offset
-                }
-            }
-            analysisPosition = bestOffset * channels
-            for (frame in 0 until WSOLA_WINDOW) {
-                if (produced + frame >= outFrames) break
-                for (channel in 0 until channels) {
-                    val index = (produced + frame) * channels + channel
-                    val source = analysisPosition + frame * channels + channel
-                    val sample = if (source < input.size) input[source] else 0
-                    val faded = previousTail[channel] * (1f - windowCurve[frame]) +
-                        sample.toFloat() * windowCurve[frame]
-                    out[index] = faded.toInt().coerceIn(PcmBuffer.SHORT_MIN, PcmBuffer.SHORT_MAX).toShort()
-                }
-            }
-            // 记录本窗尾部，供下一窗做对齐
-            for (channel in 0 until channels) {
-                val source = analysisPosition + WSOLA_HOP * channels + channel
-                previousTail[channel] = if (source < input.size) input[source].toFloat() else 0f
-            }
-            produced += WSOLA_HOP
-            if (bestOffset + WSOLA_WINDOW * 2 >= frames) break
-            analysisPosition = bestOffset * channels + analysisHop
-            if (searchBuffer.isEmpty()) break
-        }
-        return PcmBuffer(buffer.sampleRateHz, buffer.channels, out)
+    /** 按目标响度（EBU R128 LUFS）标准化，比单纯峰值归一化更接近听感。 */
+    fun normalizeLoudness(buffer: PcmBuffer, targetLufs: Float): PcmBuffer {
+        val bridge = LoudnessBridge()
+        val measured = bridge.measureLufs(buffer.samples, buffer.frames, buffer.channels, buffer.sampleRateHz)
+        if (measured == null) return PcmBuffer.normalize(buffer)
+        bridge.normalizeTo(buffer.samples, buffer.frames, buffer.channels, buffer.sampleRateHz, targetLufs)
+        return PcmBuffer.normalize(buffer, targetPeak = 30_000)
     }
 
-    private fun hann(size: Int): FloatArray =
-        FloatArray(size) { index ->
-            (0.5 - 0.5 * kotlin.math.cos(2.0 * Math.PI * index / size)).toFloat()
-        }
-
-    /** 线性重采样，ratio > 1 变慢变高，< 1 变快变低。 */
-    private fun resampleLinear(buffer: PcmBuffer, ratio: Float): PcmBuffer {
-        if (ratio <= 0f || kotlin.math.abs(ratio - 1f) < 0.0001f) return buffer
-        val channels = buffer.channels
-        val frames = buffer.frames
-        val targetFrames = (frames / ratio).toInt().coerceAtLeast(1)
-        val out = ShortArray(targetFrames * channels)
-        val input = buffer.samples
-        for (frame in 0 until targetFrames) {
-            val position = frame * ratio
-            val index = position.toInt().coerceIn(0, (frames - 1).coerceAtLeast(0))
-            val next = (index + 1).coerceAtMost((frames - 1).coerceAtLeast(0))
-            val fraction = (position - index).coerceIn(0f, 1f)
-            for (channel in 0 until channels) {
-                val a = input[index * channels + channel].toFloat()
-                val b = input[next * channels + channel].toFloat()
-                out[frame * channels + channel] = (a + (b - a) * fraction)
-                    .toInt().coerceIn(PcmBuffer.SHORT_MIN, PcmBuffer.SHORT_MAX).toShort()
-            }
-        }
-        return PcmBuffer(buffer.sampleRateHz, buffer.channels, out)
-    }
-
-    /** 只对 [startUs, endUs) 区间套效果，区间外原样保留。 */
     fun applyRange(buffer: PcmBuffer, startUs: Long, endUs: Long, effect: (PcmBuffer) -> PcmBuffer): PcmBuffer {
         val rate = buffer.sampleRateHz
         val fromFrame = ((startUs.coerceAtLeast(0L) / 1_000_000.0) * rate).toInt().coerceIn(0, buffer.frames)
@@ -523,12 +456,8 @@ object PcmEffects {
     private const val RADIO_HIGH_HZ = 3_400f
     private const val CLIP_MARGIN = 64
     private const val SAMPLE_SCALE = 32_768f
-    private const val SEMITONES_PER_OCTAVE = 12.0
-    private const val MIN_SPEED = 0.5f
-    private const val MAX_SPEED = 2.0f
-    private const val WSOLA_WINDOW = 1_024
-    private const val WSOLA_HOP = 512
-    private const val WSOLA_SEARCH = 256
+    private const val MIN_SPEED = 0.25f
+    private const val MAX_SPEED = 4.0f
 }
 
 /** RBJ cookbook 双二阶滤波器。 */

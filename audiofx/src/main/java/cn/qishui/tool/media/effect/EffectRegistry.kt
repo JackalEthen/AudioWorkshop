@@ -199,6 +199,15 @@ object EffectRegistry {
             }
             scaled
         },
+        EffectDefinition(
+            "loudness",
+            "响度标准化",
+            params = listOf(
+                EffectParam("targetLufs", "目标响度", -24f, -9f, -14f, step = 0.5f, unit = "LUFS"),
+            ),
+        ) { buffers, values, _ ->
+            PcmEffects.normalizeLoudness(buffers.first(), values.getFloat("targetLufs", -14f))
+        },
     )
 
     private val byId: Map<String, EffectDefinition> = all.associateBy { it.id }

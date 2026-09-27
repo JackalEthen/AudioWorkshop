@@ -1,14 +1,21 @@
 cmake_minimum_required(VERSION 3.22.1)
 
-project(qishui_mp3 C)
+set(ANDROID_STL c++_static)
+
+project(qishui_mp3 C CXX)
 
 set(CMAKE_C_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_C_VISIBILITY_PRESET hidden)
+set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 set(CMAKE_VISIBILITY_INLINES_HIDDEN ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 get_filename_component(LAME_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../../../third_party/lame" ABSOLUTE)
 get_filename_component(RNNOISE_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../../../third_party/rnnoise" ABSOLUTE)
+get_filename_component(STRETCH_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../../../third_party/signalsmith-stretch" ABSOLUTE)
+get_filename_component(LINEAR_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../../../third_party/signalsmith-linear" ABSOLUTE)
+get_filename_component(EBUR128_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../../../third_party/libebur128" ABSOLUTE)
 
 file(GLOB RNNOISE_SOURCES "${RNNOISE_ROOT}/src/*.c")
 # 这些是命令行小工具，不带 main 会重复符号；rnn_train.py 不是 C 源码
@@ -43,6 +50,8 @@ add_library(mp3lame_jni SHARED
     jni_rnnoise.c
     ${RNNOISE_SOURCES}
     "${RNNOISE_ROOT}/src/rnnoise_data_little.c"
+    jni_signalsmith.cpp
+    "${EBUR128_ROOT}/ebur128/ebur128.c"
 )
 
 target_include_directories(mp3lame_jni PRIVATE
@@ -52,6 +61,9 @@ target_include_directories(mp3lame_jni PRIVATE
     "${LAME_ROOT}/libmp3lame"
     "${RNNOISE_ROOT}/include"
     "${RNNOISE_ROOT}/src"
+    "${STRETCH_ROOT}"
+    "${LINEAR_ROOT}/include"
+    "${EBUR128_ROOT}/ebur128"
 )
 
 target_compile_definitions(mp3lame_jni PRIVATE HAVE_CONFIG_H FLOAT_APPROX)

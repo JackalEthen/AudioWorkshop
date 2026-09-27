@@ -49,6 +49,7 @@ val FeatureCatalog: List<FeatureEntry> = listOf(
     entry("tts", "文字转音频", FeatureGroup.COMMON, R.drawable.ic_text),
     entry("asr", "音频转文字", FeatureGroup.COMMON, R.drawable.ic_mic),
     entry("lrc", "Lrc歌词编辑", FeatureGroup.COMMON, R.drawable.ic_captions, EditOperation.LYRIC_OFFSET),
+    entry("loudness", "响度标准化", FeatureGroup.COMMON, R.drawable.ic_gauge, effectId = "loudness"),
     entry("opus", "Opus解码", FeatureGroup.COMMON, R.drawable.ic_file_audio),
 
     // 音效处理
