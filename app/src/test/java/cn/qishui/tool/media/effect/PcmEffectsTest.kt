@@ -92,9 +92,22 @@ class PcmEffectsTest {
         val low = 100f
         val buffer = PcmBuffer(rate, 1, sine(frames, rate, low, 0.5f))
         val before = rms(buffer.samples)
-        PcmEffects.equalizer(buffer, lowDb = 9f, midDb = 0f, highDb = 0f)
+        // 8 段里只拉第一段（60Hz），100Hz 落在它的裙边
+        PcmEffects.equalizer(buffer, floatArrayOf(9f, 0f, 0f, 0f, 0f, 0f, 0f, 0f))
         val after = rms(buffer.samples)
         assertTrue("低频提升后能量应上升: $before -> $after", after > before * 1.2f)
+    }
+
+    @Test
+    fun `均衡器全零时原样返回不改变信号`() {
+        val frames = 4_000
+        val rate = 44_100
+        val input = sine(frames, rate, 440f, 0.5f)
+        val buffer = PcmBuffer(rate, 1, input.copyOf())
+
+        PcmEffects.equalizer(buffer, FloatArray(8))
+
+        assertTrue(input.contentEquals(buffer.samples))
     }
 
     @Test

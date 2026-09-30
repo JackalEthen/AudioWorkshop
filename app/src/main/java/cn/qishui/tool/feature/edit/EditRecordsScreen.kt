@@ -204,7 +204,7 @@ private fun EditProjectCard(
             }
             if (project.joinedTrackIds.isNotEmpty()) {
                 Text(
-                    text = "拼接 ${project.joinedTrackIds.size} 首：${project.joinedTrackIds.joinToString()}",
+                    text = "合成 ${project.joinedTrackIds.size} 首：${project.joinedTrackIds.joinToString()}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

@@ -1,5 +1,6 @@
 package cn.qishui.tool.media.metadata
 
+import cn.qishui.tool.domain.model.LyricWord
 import cn.qishui.tool.domain.model.LyricsTrack
 import cn.qishui.tool.domain.model.TrackMetadata
 import java.io.ByteArrayOutputStream
@@ -95,7 +96,11 @@ object Id3v2Codec {
         if (lyricsTrack == null) return emptyList()
         var previous = 0
         return lyricsTrack.lines
-            .flatMap { it.words }
+            // 逐字和整行混着用的歌很常见，没有字级时间戳的行整行算一个单元，
+            // 直接 flatMap { words } 会把这行从时间轴上抹掉，播放器高亮会跳过去。
+            .flatMap { line ->
+                line.words.ifEmpty { listOf(LyricWord(line.text, line.startUs, line.endUs)) }
+            }
             .map { word ->
                 val timestampMs = (word.startUs / 1000L).coerceIn(previous.toLong(), MAX_TIMESTAMP_MS).toInt()
                 previous = timestampMs

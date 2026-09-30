@@ -1,4 +1,4 @@
-package cn.qishui.tool.feature.edit
+﻿package cn.qishui.tool.feature.edit
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -89,7 +89,7 @@ fun EditHomeScreen(
                 onSelect = { groupIndex = it },
                 modifier = Modifier.padding(horizontal = 20.dp),
             )
-            ScreenScroll {
+            ScreenScroll(modifier = Modifier.weight(1f)) {
                 Column(
                     modifier = Modifier.padding(top = 14.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -246,7 +246,7 @@ private fun RecentEditCard(recent: RecentEdit, onContinue: () -> Unit) {
 private fun EditOperation.label(): String = when (this) {
     EditOperation.TRIM -> "裁剪"
     EditOperation.SPLIT -> "分割"
-    EditOperation.JOIN -> "拼接"
+    EditOperation.JOIN -> "合成"
     EditOperation.FADE_IN -> "淡入"
     EditOperation.FADE_OUT -> "淡出"
     EditOperation.GAIN -> "增益"

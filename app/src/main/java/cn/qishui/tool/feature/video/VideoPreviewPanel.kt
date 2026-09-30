@@ -2,12 +2,8 @@ package cn.qishui.tool.feature.video
 
 import android.view.SurfaceView
 import cn.qishui.tool.R
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Surface
-import cn.qishui.tool.ui.components.LucideIcon
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
@@ -38,6 +34,7 @@ import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.core.net.toUri
 import cn.qishui.tool.ui.components.PlainCard
+import cn.qishui.tool.ui.components.PlayCircleButton
 import cn.qishui.tool.ui.components.SecondaryButton
 import java.io.File
 import java.util.Locale
@@ -217,26 +214,6 @@ fun VideoPreviewPanel(
                     }
                 }
             }
-        }
-    }
-}
-
-@Composable
-fun PlayCircleButton(playing: Boolean, onClick: () -> Unit, enabled: Boolean = true) {
-    Surface(
-        onClick = onClick,
-        enabled = enabled,
-        shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.primaryContainer,
-        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-        modifier = Modifier.size(44.dp),
-    ) {
-        Box(contentAlignment = Alignment.Center) {
-            LucideIcon(
-                icon = if (playing) R.drawable.ic_pause else R.drawable.ic_play,
-                tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                size = 22.dp,
-            )
         }
     }
 }

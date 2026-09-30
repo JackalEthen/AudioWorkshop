@@ -15,7 +15,7 @@ class AppDestinationTest {
     @Test
     fun mainDestinationLabelsAreInOrder() {
         assertEquals(
-            listOf("解析", "编辑", "设置"),
+            listOf("解析", "编辑", "播放器", "设置"),
             MainDestination.entries.map { it.label },
         )
     }

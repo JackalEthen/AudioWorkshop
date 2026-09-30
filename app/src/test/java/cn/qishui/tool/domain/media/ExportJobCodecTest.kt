@@ -1,6 +1,7 @@
 package cn.qishui.tool.domain.media
 
 import org.json.JSONObject
+import cn.qishui.tool.domain.model.JoinTransition
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Test
@@ -14,6 +15,40 @@ class ExportJobCodecTest {
         val decoded = ExportJobCodec.decode(ExportJobCodec.encode(job))
 
         assertEquals(job, decoded)
+    }
+
+    @Test
+    fun joinOptionsSurviveRoundTrip() {
+        val job = job().copy(
+            joinTransition = JoinTransition.PRESERVE,
+            transitionMs = 2_500L,
+            normalizeSources = true,
+            trailingSilenceMs = 4_000L,
+        )
+
+        val decoded = ExportJobCodec.decode(ExportJobCodec.encode(job))
+
+        assertEquals(job, decoded)
+        assertEquals(JoinTransition.PRESERVE, decoded.joinTransition)
+        assertEquals(true, decoded.normalizeSources)
+        assertEquals(4_000L, decoded.trailingSilenceMs)
+    }
+
+    @Test
+    fun legacyJsonWithoutJoinOptionsFallsBackToHardJoin() {
+        val raw = JSONObject(ExportJobCodec.encode(job())).apply {
+            remove("joinTransition")
+            remove("transitionMs")
+            remove("normalizeSources")
+            remove("trailingSilenceMs")
+        }
+
+        val decoded = ExportJobCodec.decode(raw.toString())
+
+        assertEquals(JoinTransition.NORMAL, decoded.joinTransition)
+        assertEquals(0L, decoded.transitionMs)
+        assertEquals(false, decoded.normalizeSources)
+        assertEquals(0L, decoded.trailingSilenceMs)
     }
 
     @Test

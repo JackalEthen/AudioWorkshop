@@ -1,4 +1,4 @@
-package cn.qishui.tool.feature.metadata
+﻿package cn.qishui.tool.feature.metadata
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -95,12 +95,11 @@ fun MetadataScreen(
                 actionContent = {
                     InfoHintAction(
                         hint = HINT,
-                        expanded = hintVisible,
-                        onToggle = { hintVisible = !hintVisible },
+                        onOpen = { hintVisible = true },
                     )
                 },
             )
-            ScreenScroll {
+            ScreenScroll(modifier = Modifier.weight(1f)) {
                 InfoHintBox(
                     hint = HINT,
                     visible = hintVisible,

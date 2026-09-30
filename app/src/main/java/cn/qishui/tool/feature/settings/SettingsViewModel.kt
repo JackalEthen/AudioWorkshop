@@ -54,6 +54,8 @@ class SettingsViewModel(
         refreshPreview(pattern)
     }
 
+    fun setPlaybackQuality(quality: String) = settingsRepository.updatePlaybackQuality(quality)
+
     fun resetAppearance() = settingsRepository.resetAppearance()
 
     private fun refreshPreview(pattern: String) {

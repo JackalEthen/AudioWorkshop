@@ -17,6 +17,7 @@ class EffectProcessor(
         effectId: String,
         sources: List<File>,
         values: Map<String, Float>,
+        segments: List<SegmentRange> = emptyList(),
         onProgress: (Float) -> Unit = {},
     ): Result<File> {
         val definition = EffectRegistry.find(effectId)
@@ -43,7 +44,7 @@ class EffectProcessor(
                 throw IllegalStateException("采样率 ${source.sampleRateHz}Hz 不支持，请先用「格式转换」转成 44100/48000")
             }
             buffers.forEachIndexed { index, buffer ->
-                if (buffer.channels != source.channels) {
+                if (buffer.channels != source.channels && !definition.leftRightSlots) {
                     throw IllegalStateException("所选歌曲声道数不一致，无法混合")
                 }
                 if (index > 0 && !definition.multiTrack) {
@@ -51,12 +52,30 @@ class EffectProcessor(
                 }
             }
 
+            // 立体声合成：左槽进左声道、右槽进右声道，两首各自独立
+            if (definition.leftRightSlots) {
+                if (buffers[1].sampleRateHz != source.sampleRateHz) {
+                    throw IllegalStateException("左右两首歌采样率不同，请先统一转成 44100 或 48000")
+                }
+                onProgress(0.9f)
+                val composed = PcmEffects.stereoCompose(buffers[0], buffers[1])
+                onProgress(0.95f)
+                val target = outputFile(definition.id)
+                if (target.exists()) target.delete()
+                composed.writeWav(target)
+                onProgress(1f)
+                return@runCatching target
+            }
+
             onProgress(sources.size.toFloat() / (sources.size + 1))
-            val processed = PcmEffects.applyRange(
-                buffer = source,
-                startUs = (values["startSec"] ?: 0f).toLong() * MICROS_PER_SECOND,
-                endUs = (values["endSec"] ?: 0f).toLong() * MICROS_PER_SECOND,
-            ) { region -> definition.apply(listOf(region), values, rnnoise) }
+            // 多轨效果（混音、合成）要拿到全部 buffer，所以先各自裁区间再一起交给效果
+            val startUs = (values["startSec"] ?: 0f).toLong() * MICROS_PER_SECOND
+            val endUs = (values["endSec"] ?: 0f).toLong() * MICROS_PER_SECOND
+            val regions = buffers.map { buffer ->
+                PcmEffects.applyRange(buffer = buffer, startUs = startUs, endUs = endUs) { it }
+            }
+            val processed = definition.applySegmented?.invoke(regions.first(), segments)
+                ?: definition.apply(regions, values, rnnoise)
             onProgress(0.95f)
 
             val target = outputFile(definition.id)
@@ -64,6 +83,43 @@ class EffectProcessor(
             processed.writeWav(target)
             onProgress(1f)
             target
+        }
+    }
+
+    /**
+     * 多输出效果（立体声分离）。返回按顺序排好的 WAV 列表，
+     * 调用方负责试听和落盘。区间参数对多输出不生效。
+     */
+    fun processMulti(
+        effectId: String,
+        sources: List<File>,
+        values: Map<String, Float>,
+        onProgress: (Float) -> Unit = {},
+    ): Result<List<File>> {
+        val definition = EffectRegistry.find(effectId)
+            ?: return Result.failure(IllegalArgumentException("未知效果: $effectId"))
+        val applyMulti = definition.applyMulti
+            ?: return Result.failure(IllegalStateException("「${definition.label}」不是多输出效果"))
+        if (sources.isEmpty()) return Result.failure(IllegalArgumentException("请先选择歌曲"))
+        val file = sources.first()
+        require(file.isFile && file.length() > 0L) { "源文件不可用: ${file.name}" }
+        return runCatching {
+            val source = PcmBuffer.read(reader.fileSource(file))
+            if (source.channels > 2) throw IllegalStateException("暂不支持多声道源（${source.channels} 声道）")
+            if (source.sampleRateHz !in SUPPORTED_RATES) {
+                throw IllegalStateException("采样率 ${source.sampleRateHz}Hz 不支持，请先用「格式转换」转成 44100/48000")
+            }
+            onProgress(0.8f)
+            val outputs = applyMulti(listOf(source), values, null)
+            onProgress(0.95f)
+            val files = outputs.mapIndexed { index, buffer ->
+                outputFile("${definition.id}-$index").also { target ->
+                    if (target.exists()) target.delete()
+                    buffer.writeWav(target)
+                }
+            }
+            onProgress(1f)
+            files
         }
     }
 

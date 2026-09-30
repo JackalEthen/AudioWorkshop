@@ -138,6 +138,7 @@ private fun NavGlyphIcon(glyph: NavGlyph, tint: Color) = LucideIcon(
     icon = when (glyph) {
         NavGlyph.Resolve -> R.drawable.ic_arrow_down_to_line
         NavGlyph.Edit -> R.drawable.ic_scissors
+        NavGlyph.Playback -> R.drawable.ic_headphones
         NavGlyph.Settings -> R.drawable.ic_sliders_horizontal
     },
     tint = tint,

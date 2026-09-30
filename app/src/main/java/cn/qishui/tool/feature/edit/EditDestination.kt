@@ -39,11 +39,11 @@ val EditFeatureCards: List<EditFeatureCard> = listOf(
         label = "分割",
         recordOperations = setOf(EditOperation.SPLIT),
     ),
-    EditFeatureCard(
-        operation = EditOperation.JOIN,
-        label = "拼接",
-        recordOperations = setOf(EditOperation.JOIN),
-    ),
+EditFeatureCard(
+    operation = EditOperation.JOIN,
+    label = "合成",
+    recordOperations = setOf(EditOperation.JOIN),
+),
     EditFeatureCard(
         operation = EditOperation.FADE_IN,
         label = "淡入淡出",

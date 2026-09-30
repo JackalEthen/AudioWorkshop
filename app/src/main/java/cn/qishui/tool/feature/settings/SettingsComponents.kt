@@ -102,6 +102,7 @@ internal enum class SettingGlyph(val icon: Int) {
     Download(R.drawable.ic_download),
     Grid(R.drawable.ic_grid_2x2),
     Info(R.drawable.ic_info),
+    Audio(R.drawable.ic_headphones),
 }
 
 internal object ThemeCatalogLookup {

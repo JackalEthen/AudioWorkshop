@@ -1,6 +1,7 @@
 package cn.qishui.tool.media.pcm
 
 import cn.qishui.tool.domain.model.EditTimeSegment
+import cn.qishui.tool.domain.model.FadeCurve
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -79,8 +80,20 @@ class PcmEditPipelineTest {
     }
 
     @Test
-    fun segmentBoundarySpanningChunksKeepsExactlyTheRetainedFrames() {
+    fun equalPowerCurveLiftsTheMiddleAboveTheLinearRamp() {
         val collected = runPipeline(
+            segments = listOf(EditTimeSegment(0L, 10_000L, 0L, 10_000L)),
+            fadeInUs = 4_000L,
+            fadeCurve = FadeCurve.EQUAL_POWER,
+            chunks = listOf(mono(0L, RATE, 10) { 1_000 }),
+        )
+
+        // sin 曲线在中段比线性高：第 5 个采样 500ms 处应 ≈ 707，线性只有 500
+        assertArrayEquals(shorts(0, 383, 707, 924, 1_000, 1_000, 1_000, 1_000, 1_000, 1_000), collected)
+    }
+
+    @Test
+    fun segmentBoundarySpanningChunksKeepsExactlyTheRetainedFrames() {        val collected = runPipeline(
             segments = listOf(EditTimeSegment(4_000L, 7_000L, 0L, 3_000L)),
             chunks = listOf(
                 mono(0L, RATE, 3) { 1 },
@@ -169,9 +182,10 @@ class PcmEditPipelineTest {
         gainDb: Float = 0f,
         fadeInUs: Long = 0L,
         fadeOutUs: Long = 0L,
+        fadeCurve: FadeCurve = FadeCurve.LINEAR,
     ): ShortArray {
         val collected = mutableListOf<ShortArray>()
-        PcmEditPipeline(segments, gainDb, fadeInUs, fadeOutUs).process(source(*chunks.toTypedArray())) {
+        PcmEditPipeline(segments, gainDb, fadeInUs, fadeOutUs, fadeCurve).process(source(*chunks.toTypedArray())) {
             collected += it
         }
         return collected.fold(ShortArray(0)) { acc, block -> acc + block }

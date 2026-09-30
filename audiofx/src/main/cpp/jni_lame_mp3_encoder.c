@@ -11,7 +11,7 @@ static lame_global_flags *qs_flags(jlong handle)
 }
 
 JNIEXPORT jlong JNICALL Java_cn_qishui_tool_media_export_LameNativeBridge_nativeInit(
-        JNIEnv *env, jobject bridge, jint sample_rate, jint channels, jint vbr_quality)
+        JNIEnv *env, jobject bridge, jint sample_rate, jint channels, jint bitrate_kbps)
 {
     lame_global_flags *flags = lame_init();
     if (flags == NULL) {
@@ -20,11 +20,24 @@ JNIEXPORT jlong JNICALL Java_cn_qishui_tool_media_export_LameNativeBridge_native
     if (lame_set_in_samplerate(flags, (int) sample_rate) < 0
         || lame_set_num_channels(flags, (int) channels) < 0
         || lame_set_mode(flags, channels == 1 ? MONO : JOINT_STEREO) < 0
-        || lame_set_VBR(flags, vbr_mt) < 0
-        || lame_set_VBR_q(flags, (int) vbr_quality) < 0
         || lame_set_bWriteVbrTag(flags, 0) < 0
-        || lame_set_quality(flags, 2) < 0
-        || lame_init_params(flags) < 0) {
+        || lame_set_quality(flags, 2) < 0) {
+        lame_close(flags);
+        return -1;
+    }
+    // bitrate_kbps > 0 走固定码率，否则退回 VBR（质量 2）
+    if (bitrate_kbps > 0) {
+        if (lame_set_VBR(flags, vbr_off) < 0
+            || lame_set_brate(flags, (int) bitrate_kbps) < 0) {
+            lame_close(flags);
+            return -1;
+        }
+    } else if (lame_set_VBR(flags, vbr_mt) < 0
+        || lame_set_VBR_q(flags, 2) < 0) {
+        lame_close(flags);
+        return -1;
+    }
+    if (lame_init_params(flags) < 0) {
         lame_close(flags);
         return -1;
     }

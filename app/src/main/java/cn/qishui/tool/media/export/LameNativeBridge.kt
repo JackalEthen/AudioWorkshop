@@ -11,12 +11,16 @@ class LameNativeBridge : AutoCloseable {
     val isOpen: Boolean
         get() = handle > 0L
 
-    fun init(sampleRateHz: Int, channelCount: Int, vbrQuality: Int) {
-        require(sampleRateHz == 44100 || sampleRateHz == 48000) { "sampleRate 仅支持 44100 或 48000: $sampleRateHz" }
+    /**
+     * [bitrateKbps] > 0 走固定码率（CBR），传 0 退回多线程 VBR。
+     * 采样率放开到 LAME 支持的全区间，8k~48k 都能出。
+     */
+    fun init(sampleRateHz: Int, channelCount: Int, bitrateKbps: Int) {
+        require(sampleRateHz in SUPPORTED_RATES) { "采样率不在支持范围: $sampleRateHz" }
         require(channelCount == 1 || channelCount == 2) { "channels 仅支持 1 或 2: $channelCount" }
-        require(vbrQuality in 0..9) { "vbrQuality 必须在 0..9: $vbrQuality" }
+        require(bitrateKbps == 0 || bitrateKbps in 32..320) { "比特率必须是 0（VBR）或 32..320: $bitrateKbps" }
         check(handle == 0L) { "already initialized" }
-        val created = nativeInit(sampleRateHz, channelCount, vbrQuality)
+        val created = nativeInit(sampleRateHz, channelCount, bitrateKbps)
         if (created <= 0L) throw LameEncodeException("LAME 初始化失败, code=$created")
         handle = created
         sampleRate = sampleRateHz
@@ -60,7 +64,7 @@ class LameNativeBridge : AutoCloseable {
         return handle
     }
 
-    private external fun nativeInit(sampleRate: Int, channels: Int, vbrQuality: Int): Long
+    private external fun nativeInit(sampleRate: Int, channels: Int, bitrateKbps: Int): Long
 
     private external fun nativeEncode(owner: Long, pcm: ShortArray, samplesPerChannel: Int, out: ByteArray): Int
 
@@ -71,6 +75,9 @@ class LameNativeBridge : AutoCloseable {
     private companion object {
         const val OUTPUT_MARGIN_BYTES = 8192
         const val FLUSH_MARGIN_BYTES = 8192
+
+        /** LAME 支持的采样率全区间，MP3 标准里都存在。 */
+        val SUPPORTED_RATES = setOf(8_000, 11_025, 12_000, 16_000, 22_050, 24_000, 32_000, 44_100, 48_000)
         val EMPTY = ByteArray(0)
 
         init {

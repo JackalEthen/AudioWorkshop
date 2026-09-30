@@ -1,4 +1,4 @@
-package cn.qishui.tool.feature.settings
+﻿package cn.qishui.tool.feature.settings
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -41,6 +41,7 @@ object SettingsRoute {
     const val Appearance = "settings/appearance"
     const val Download = "settings/download"
     const val Naming = "settings/naming"
+    const val PlayerSource = "settings/player-source"
     const val About = "settings/about"
 }
 
@@ -62,9 +63,10 @@ fun SettingsHomeScreen(
                 actionText = "重置",
                 onAction = viewModel::resetAppearance,
             )
-            ScreenScroll {
+            ScreenScroll(modifier = Modifier.weight(1f)) {
                 listOf(
                     Entry("外观", SettingsRoute.Appearance, SettingGlyph.Palette),
+                    Entry("播放器音源", SettingsRoute.PlayerSource, SettingGlyph.Audio),
                     Entry("下载", SettingsRoute.Download, SettingGlyph.Download),
                     Entry("其他", SettingsRoute.Naming, SettingGlyph.Grid),
                     Entry("关于", SettingsRoute.About, SettingGlyph.Info),

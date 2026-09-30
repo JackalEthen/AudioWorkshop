@@ -1,5 +1,7 @@
 package cn.qishui.tool.feature.edit.lyrics
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -15,6 +17,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -28,6 +31,8 @@ fun LyricsPanel(
     lyrics: LyricsTrack,
     positionUs: Long,
     modifier: Modifier = Modifier,
+    activeIndex: Int = -1,
+    onLineClick: ((Int) -> Unit)? = null,
 ) {
     val lines = lyrics.lines
     val cursor by remember(lyrics, positionUs) {
@@ -44,6 +49,8 @@ fun LyricsPanel(
         return
     }
 
+    val selected = remember(activeIndex, lines) { activeIndex.takeIf { it in lines.indices } }
+
     LazyColumn(
         modifier = modifier
             .fillMaxWidth()
@@ -55,14 +62,26 @@ fun LyricsPanel(
             LyricRow(
                 line = line,
                 isCurrent = index == cursor.lineIndex,
+                isSelected = index == selected,
                 currentWordIndex = if (index == cursor.lineIndex) cursor.wordIndex else -1,
+                modifier = if (onLineClick != null) {
+                    Modifier.clickable { onLineClick(index) }
+                } else {
+                    Modifier
+                },
             )
         }
     }
 }
 
 @Composable
-private fun LyricRow(line: LyricLine, isCurrent: Boolean, currentWordIndex: Int) {
+private fun LyricRow(
+    line: LyricLine,
+    isCurrent: Boolean,
+    isSelected: Boolean,
+    currentWordIndex: Int,
+    modifier: Modifier = Modifier,
+) {
     val text = if (isCurrent && currentWordIndex >= 0) {
         buildAnnotatedString {
             line.words.forEachIndexed { index, word ->
@@ -80,12 +99,30 @@ private fun LyricRow(line: LyricLine, isCurrent: Boolean, currentWordIndex: Int)
     }
     Text(
         text = text,
-        style = if (isCurrent) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.bodyMedium,
-        fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
-        color = if (isCurrent) {
-            MaterialTheme.colorScheme.onSurface
+        style = if (isCurrent || isSelected) {
+            MaterialTheme.typography.headlineSmall
         } else {
-            MaterialTheme.colorScheme.onSurfaceVariant
+            MaterialTheme.typography.bodyMedium
         },
+        fontWeight = when {
+            isSelected -> FontWeight.Bold
+            isCurrent -> FontWeight.Bold
+            else -> FontWeight.Normal
+        },
+        color = when {
+            isSelected -> MaterialTheme.colorScheme.primary
+            isCurrent -> MaterialTheme.colorScheme.onSurface
+            else -> MaterialTheme.colorScheme.onSurfaceVariant
+        },
+        modifier = modifier
+            .fillMaxWidth()
+            .background(
+                if (isSelected) {
+                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
+                } else {
+                    Color.Transparent
+                },
+            )
+            .padding(horizontal = 8.dp, vertical = 4.dp),
     )
 }

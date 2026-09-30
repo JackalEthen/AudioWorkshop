@@ -1,4 +1,4 @@
-package cn.qishui.tool.service
+﻿package cn.qishui.tool.service
 
 import android.app.Service
 import android.content.Intent
@@ -10,7 +10,7 @@ import android.os.Message
 import android.os.Messenger
 import cn.qishui.tool.app.ProcessIdentity
 import cn.qishui.tool.data.media.AudioFileProbe
-import cn.qishui.tool.data.media.QsmusicLyricParser
+import cn.qishui.tool.data.media.LyricsCodec
 import cn.qishui.tool.domain.media.ExportJob
 import cn.qishui.tool.domain.media.ExportJobCodec
 import cn.qishui.tool.domain.media.ExportResult
@@ -38,7 +38,7 @@ class EncoderService : Service() {
         engine = ExportEngine(
             probe = AudioFileProbe(),
             reader = PcmChunkReader(applicationContext),
-            lyricParser = QsmusicLyricParser(),
+            lyricParser = LyricsCodec,
         )
     }
 

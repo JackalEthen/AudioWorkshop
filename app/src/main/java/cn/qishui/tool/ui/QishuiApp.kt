@@ -1,4 +1,4 @@
-package cn.qishui.tool.ui
+﻿package cn.qishui.tool.ui
 
 import android.content.Context
 import android.content.Intent
@@ -46,8 +46,15 @@ import cn.qishui.tool.feature.effect.EffectWorkspaceScreen
 import cn.qishui.tool.feature.effect.EffectWorkspaceViewModel
 import cn.qishui.tool.feature.metadata.MetadataScreen
 import cn.qishui.tool.feature.video.VideoEditScreen
+import cn.qishui.tool.feature.video.VideoExtractAudioScreen
+import cn.qishui.tool.feature.video.VideoExtractAudioViewModel
 import cn.qishui.tool.feature.video.VideoTool
 import cn.qishui.tool.feature.metadata.MetadataViewModel
+import cn.qishui.tool.feature.player.PlayerFavoritesScreen
+import cn.qishui.tool.feature.player.PlayerHomeScreen
+import cn.qishui.tool.feature.player.PlayerRoute
+import cn.qishui.tool.feature.player.PlayerSearchScreen
+import cn.qishui.tool.feature.source.MusicSourceViewModel
 import java.io.File
 import cn.qishui.tool.domain.model.AppSettings
 import cn.qishui.tool.domain.model.EditOperation
@@ -66,6 +73,7 @@ import cn.qishui.tool.feature.settings.AboutScreen
 import cn.qishui.tool.feature.settings.AppearanceScreen
 import cn.qishui.tool.feature.settings.DownloadSettingsScreen
 import cn.qishui.tool.feature.settings.NamingSettingsScreen
+import cn.qishui.tool.feature.settings.PlayerSourceSettingsScreen
 import cn.qishui.tool.feature.settings.SettingsHomeScreen
 import cn.qishui.tool.feature.settings.SettingsRoute
 import cn.qishui.tool.feature.settings.SettingsViewModel
@@ -83,35 +91,16 @@ fun QishuiApp(
     settings: AppSettings,
 ) {
     val navController = rememberNavController()
+    val context = androidx.compose.ui.platform.LocalContext.current
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
-    val appContext = LocalContext.current
-    val scope = rememberCoroutineScope()
-    val videoMessage = remember { SnackbarHostState() }
+    // 全屏播放页盖住整屏时隐藏底栏
+    var playerSheetVisible by remember { mutableStateOf(false) }
 
-    val videoAudioPicker = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenDocument(),
-    ) { uri ->
-        if (uri == null) return@rememberLauncherForActivityResult
-        scope.launch {
-            val outcome = withContext(Dispatchers.IO) {
-                runCatching {
-                    val cached = File(appContext.cacheDir, "video-src").apply { mkdirs() }
-                        .let { File(it, "src-${System.currentTimeMillis()}.video") }
-                    appContext.contentResolver.openInputStream(uri)?.use { input ->
-                        cached.outputStream().use { output -> input.copyTo(output) }
-                    } ?: throw IllegalStateException("无法读取所选视频")
-                    val wav = container.videoTools.extractAudio(cached, "视频音频")
-                        .getOrThrow()
-                    container.sourceTrackRepository.importLocalAudio(Uri.fromFile(wav).toString())
-                        .getOrThrow()
-                }
-            }
-            outcome.fold(
-                onSuccess = { videoMessage.showSnackbar("已导入 ${it.title ?: "视频音频"}") },
-                onFailure = { videoMessage.showSnackbar("提取失败：${it.message ?: "未知错误"}") },
-            )
-        }
+    // 冷启动就把勾选的音源引擎拉起来。不做这一步的话，用户重启 App 后第一次
+    // 播放远端曲会静默失败 —— 引擎没起，求直链直接返回 null。
+    LaunchedEffect(container) {
+        container.musicSourceRepository.activateCurrent()
     }
 
     CompositionLocalProvider(
@@ -122,17 +111,8 @@ fun QishuiApp(
             wallpaperAlpha = settings.wallpaperAlpha,
             wallpaperBlurDp = settings.wallpaperBlurDp,
         ) {
-            Box(modifier = Modifier.fillMaxSize()) {
                 Box(modifier = Modifier.fillMaxSize()) {
-                    SnackbarHost(
-                        hostState = videoMessage,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top))
-                            .padding(horizontal = 20.dp, vertical = 12.dp),
-                    )
-                }
-                NavHost(
+                    NavHost(
                     navController = navController,
                     startDestination = MainDestination.Resolve.route,
                     modifier = Modifier.fillMaxSize(),
@@ -180,11 +160,48 @@ fun QishuiApp(
                             },
                             onOpenRecords = { navController.navigate(EditDestination.RecordsRoute) },
                             onOpenEffect = { effectId -> navController.navigate("effect/$effectId") },
-                            onExtractVideoAudio = { videoAudioPicker.launch(arrayOf("video/*")) },
+                            onExtractVideoAudio = { navController.navigate("video_extract") },
                             onVideoTrim = { navController.navigate("video_trim") },
                             onVideoJoin = { navController.navigate("video_join") },
                             onVideoSpeed = { navController.navigate("video_speed") },
                             onOpenMetadata = { navController.navigate("metadata") },
+                        )
+                    }
+                    composable(MainDestination.Playback.route) {
+                        PlayerHomeScreen(
+                            container = container,
+                            onBack = { navController.popBackStack() },
+                            onOpenSearch = { navController.navigate(PlayerRoute.Search) },
+                            onOpenFavorites = { navController.navigate(PlayerRoute.Favorites) },
+                            onSheetVisibleChange = { playerSheetVisible = it },
+                        )
+                    }
+                    composable(PlayerRoute.Favorites) {
+                        PlayerFavoritesScreen(
+                            container = container,
+                            onBack = { navController.popBackStack() },
+                        )
+                    }
+                    composable(PlayerRoute.Search) {
+                        PlayerSearchScreen(
+                            container = container,
+                            onBack = { navController.popBackStack() },
+                            onOpenSourceSettings = { navController.navigate(SettingsRoute.PlayerSource) },
+                        )
+                    }
+                    composable("video_extract") {
+                        val factory = remember(container) {
+                            VideoExtractAudioViewModel.factory(
+                                videoTools = container.videoTools,
+                                encoderClient = container.encoderClient,
+                                exportTargetWriter = container.exportTargetWriter,
+                                exportTempDirectory = container.exportTempDirectory,
+                            )
+                        }
+                        val extractViewModel: VideoExtractAudioViewModel = viewModel(factory = factory)
+                        VideoExtractAudioScreen(
+                            viewModel = extractViewModel,
+                            onBack = { navController.popBackStack() },
                         )
                     }
                     listOf(
@@ -223,7 +240,9 @@ fun QishuiApp(
                                 sourceTrackRepository = container.sourceTrackRepository,
                                 encoderClient = container.encoderClient,
                                 exportTargetWriter = container.exportTargetWriter,
+                                targetResolver = container.downloadTargetResolver,
                                 probe = AudioFileProbe(),
+                                audioPlayer = container.audioPlayer,
                                 pcmChunkReader = container.pcmChunkReader,
                                 exportTempDirectory = container.exportTempDirectory,
                             )
@@ -273,7 +292,8 @@ fun QishuiApp(
                                     waveformSource = container.waveformExtractor,
                                     lyricsParser = container.lyricsParser,
                                     encoderClient = container.encoderClient,
-                                    exportTargetWriter = container.exportTargetWriter,
+                                exportTargetWriter = container.exportTargetWriter,
+                                previewRenderer = container.editPreviewRenderer,
                                 )
                             }
                             val viewModel: EditWorkspaceViewModel = viewModel(factory = factory)
@@ -350,6 +370,23 @@ fun QishuiApp(
                             onPickDirectory = { directoryPicker.launch(null) },
                         )
                     }
+                    composable(SettingsRoute.PlayerSource) {
+                        val factory = remember(container) { SettingsViewModel.factory(container.settingsRepository) }
+                        val viewModel: SettingsViewModel = viewModel(factory = factory)
+                        val sourceFactory = remember(container) {
+                            MusicSourceViewModel.factory(
+                                repository = container.musicSourceRepository,
+                                engineState = container.lxSourceRuntime.state,
+                                contentResolver = context.contentResolver,
+                            )
+                        }
+                        val sourceViewModel: MusicSourceViewModel = viewModel(factory = sourceFactory)
+                        PlayerSourceSettingsScreen(
+                            viewModel = viewModel,
+                            sourceViewModel = sourceViewModel,
+                            onBack = { navController.popBackStack() },
+                        )
+                    }
                     composable(SettingsRoute.Naming) {
                         val factory = remember(container) { SettingsViewModel.factory(container.settingsRepository) }
                         val viewModel: SettingsViewModel = viewModel(factory = factory)
@@ -363,7 +400,8 @@ fun QishuiApp(
                     }
                 }
                 // ponytail: 只在一级页面显示悬浮胶囊，内容从它下面穿过
-                if (currentRoute in MainDestination.entries.map { it.route }) {
+                // 全屏播放页盖住整屏时也要把底栏藏掉，否则会浮在播放页上面
+                if (currentRoute in MainDestination.entries.map { it.route } && !playerSheetVisible) {
                     FloatingBottomBar(
                         destinations = MainDestination.entries,
                         currentRoute = currentRoute,

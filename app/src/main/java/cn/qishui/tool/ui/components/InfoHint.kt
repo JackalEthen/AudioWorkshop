@@ -24,24 +24,42 @@ import androidx.compose.ui.unit.dp
 import cn.qishui.tool.R
 
 /**
- * 顶栏右侧的 info 按钮 + 页面上部的提示框。
- * 点 info 展开，再点提示框（或再点 info）收起。
+ * 顶栏右侧的 info 按钮。点它弹出「使用说明」弹层。
+ *
+ * 提示只放这一处：以前底部还挂了一个展开式的提示栏，两处并存又占地方。
  */
 @Composable
 fun InfoHintAction(
     hint: String,
-    expanded: Boolean,
-    onToggle: () -> Unit,
+    onOpen: () -> Unit,
 ) {
-    BarChip(onClick = onToggle, description = "使用说明") {
+    BarChip(onClick = onOpen, description = "使用说明") {
         LucideIcon(
             icon = R.drawable.ic_info,
-            tint = if (expanded) {
-                MaterialTheme.colorScheme.primary
-            } else {
-                MaterialTheme.colorScheme.onSurface
-            },
+            tint = MaterialTheme.colorScheme.onSurface,
             size = 22.dp,
+        )
+    }
+}
+
+/** 「使用说明」弹层的内容。所有功能页的温馨提示都走这里。 */
+@Composable
+fun HintSheetContent(hint: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.Top,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        LucideIcon(
+            icon = R.drawable.ic_info,
+            tint = MaterialTheme.colorScheme.primary,
+            size = 20.dp,
+        )
+        Text(
+            text = hint,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f),
         )
     }
 }

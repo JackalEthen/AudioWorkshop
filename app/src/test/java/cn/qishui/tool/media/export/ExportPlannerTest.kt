@@ -3,6 +3,8 @@ package cn.qishui.tool.media.export
 import cn.qishui.tool.domain.media.ExportJob
 import cn.qishui.tool.domain.media.ExportSegment
 import cn.qishui.tool.domain.media.ExportSource
+import cn.qishui.tool.domain.model.FadeCurve
+import cn.qishui.tool.domain.model.JoinTransition
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -82,7 +84,83 @@ class ExportPlannerTest {
         assertEquals(10_000L, plan.totalOutputUs)
     }
 
-    private fun job(fadeInMs: Long = 0L, fadeOutMs: Long = 0L): ExportJob = ExportJob(
+    @Test
+    fun fadeTransitionRampsBothSidesOfTheSeamWithoutChangingTotalLength() {
+        val plan = ExportPlanner.plan(job(joinTransition = JoinTransition.FADE, transitionMs = 1_500L))
+
+        assertEquals(1_500_000L, plan.steps[0].fadeOutUs)
+        assertEquals(1_500_000L, plan.steps[1].fadeInUs)
+        // 斜坡对接不重叠，总时长不变
+        assertEquals(0L, plan.steps[0].gapAfterUs)
+        assertEquals(8_000L, plan.totalOutputUs)
+    }
+
+    @Test
+    fun stableTransitionUsesEqualPowerCurveEvenOnTheOuterSteps() {
+        // 两首拼接时首尾两条同时承担接缝斜坡，必须也能拿到等功率曲线
+        val plan = ExportPlanner.plan(job(joinTransition = JoinTransition.STABLE, transitionMs = 800L))
+
+        assertEquals(FadeCurve.EQUAL_POWER, plan.steps[0].fadeCurve)
+        assertEquals(FadeCurve.EQUAL_POWER, plan.steps[1].fadeCurve)
+    }
+
+    @Test
+    fun normalTransitionLeavesEverySeamHard() {
+        val plan = ExportPlanner.plan(job(joinTransition = JoinTransition.NORMAL, transitionMs = 1_500L))
+
+        assertEquals(0L, plan.steps[0].fadeOutUs)
+        assertEquals(0L, plan.steps[1].fadeInUs)
+        assertEquals(0L, plan.steps[0].gapAfterUs)
+        assertEquals(8_000L, plan.totalOutputUs)
+    }
+
+    @Test
+    fun preserveTransitionInsertsSilenceAndKeepsEverySample() {
+        val plan = ExportPlanner.plan(job(joinTransition = JoinTransition.PRESERVE, transitionMs = 2_000L))
+
+        assertEquals(2_000_000L, plan.steps[0].gapAfterUs)
+        assertEquals(0L, plan.steps[1].gapAfterUs)
+        // 不淡出也不淡入，只加空白
+        assertEquals(0L, plan.steps[0].fadeOutUs)
+        assertEquals(0L, plan.steps[1].fadeInUs)
+        // 原本 8ms，加 2000ms 空白
+        assertEquals(2_008_000L, plan.totalOutputUs)
+        // 后一首整体后移：前一首 6ms + 2000ms 空白
+        assertEquals(2_006_000L, plan.steps[1].outputStartUs)
+        assertEquals(2_008_000L, plan.steps[1].outputEndUs)
+    }
+
+    @Test
+    fun trailingSilenceExtendsThePlanWithoutTouchingTheSteps() {
+        val plan = ExportPlanner.plan(job(trailingSilenceMs = 3_000L))
+
+        assertEquals(3_008_000L, plan.totalOutputUs)
+        assertEquals(3_008L, plan.durationMs)
+        assertEquals(3_000_000L, plan.trailingSilenceUs)
+        assertEquals(8_000L, plan.steps.last().outputEndUs)
+    }
+
+    @Test
+    fun trailingSilenceCombinesWithPreserveGaps() {
+        val plan = ExportPlanner.plan(
+            job(
+                joinTransition = JoinTransition.PRESERVE,
+                transitionMs = 1_000L,
+                trailingSilenceMs = 2_000L,
+            ),
+        )
+
+        assertEquals(1_000_000L, plan.steps[0].gapAfterUs)
+        assertEquals(3_008_000L, plan.totalOutputUs)
+    }
+
+    private fun job(
+        fadeInMs: Long = 0L,
+        fadeOutMs: Long = 0L,
+        joinTransition: JoinTransition = JoinTransition.NORMAL,
+        transitionMs: Long = 0L,
+        trailingSilenceMs: Long = 0L,
+    ): ExportJob = ExportJob(
         jobId = "job-1",
         editProjectId = "edit-1",
         outputTempPath = "/cache/export.mp3",
@@ -110,5 +188,8 @@ class ExportPlannerTest {
         fadeInMs = fadeInMs,
         fadeOutMs = fadeOutMs,
         lyricOffsetMs = 0L,
+        joinTransition = joinTransition,
+        transitionMs = transitionMs,
+        trailingSilenceMs = trailingSilenceMs,
     )
 }

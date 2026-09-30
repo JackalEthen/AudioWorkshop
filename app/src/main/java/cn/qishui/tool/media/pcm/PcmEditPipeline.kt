@@ -1,6 +1,7 @@
 package cn.qishui.tool.media.pcm
 
 import cn.qishui.tool.domain.model.EditTimeSegment
+import cn.qishui.tool.domain.model.FadeCurve
 import kotlin.math.pow
 import kotlin.math.roundToInt
 
@@ -9,6 +10,7 @@ class PcmEditPipeline(
     gainDb: Float = 0f,
     private val fadeInUs: Long = 0L,
     private val fadeOutUs: Long = 0L,
+    private val fadeCurve: FadeCurve = FadeCurve.LINEAR,
 ) {
     private val gain = 10.0.pow(gainDb / 20.0).toFloat()
     private val outputDurationUs = segments.maxOfOrNull { it.outputEndUs } ?: 0L
@@ -65,12 +67,12 @@ class PcmEditPipeline(
     private fun fadeFactor(): Float {
         val positionUs = outputTimeUs
         if (fadeInUs > 0L && positionUs < fadeInUs) {
-            return (positionUs.toFloat() / fadeInUs.toFloat()).coerceIn(0f, 1f)
+            return fadeCurve.shape(positionUs.toFloat() / fadeInUs.toFloat())
         }
         if (fadeOutUs > 0L && outputDurationUs > 0L) {
             val remaining = outputDurationUs - positionUs
             if (remaining < fadeOutUs) {
-                return (remaining.toFloat() / fadeOutUs.toFloat()).coerceIn(0f, 1f)
+                return fadeCurve.shape(remaining.toFloat() / fadeOutUs.toFloat())
             }
         }
         return 1f

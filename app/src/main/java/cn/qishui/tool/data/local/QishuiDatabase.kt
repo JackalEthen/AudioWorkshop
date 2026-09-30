@@ -106,6 +106,31 @@ interface ParseRecordDao {
     suspend fun insert(record: ParseRecordEntity)
 }
 
+/** 收藏：单张星标，不做歌单。song_id 指向 source_tracks.id。 */
+@Entity(
+    tableName = "favorites",
+    indices = [Index(value = ["created_at"])],
+)
+data class FavoriteEntity(
+    @androidx.room.PrimaryKey val song_id: String,
+    val created_at: Long,
+)
+
+@Dao
+interface FavoritesDao {
+    @Query("SELECT `song_id` FROM `favorites` ORDER BY `created_at` DESC")
+    fun observeFavoriteIds(): Flow<List<String>>
+
+    @Query("SELECT EXISTS(SELECT 1 FROM `favorites` WHERE `song_id` = :songId)")
+    fun observeIsFavorite(songId: String): Flow<Boolean>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun add(entity: FavoriteEntity)
+
+    @Query("DELETE FROM `favorites` WHERE `song_id` = :songId")
+    suspend fun remove(songId: String)
+}
+
 @Database(
     entities = [
         DownloadTaskEntity::class,
@@ -113,8 +138,10 @@ interface ParseRecordDao {
         SourceTrackEntity::class,
         EditProjectEntity::class,
         ExportPackageEntity::class,
+        FavoriteEntity::class,
+        MusicSourceEntity::class,
     ],
-    version = 5,
+    version = 10,
     exportSchema = false,
 )
 abstract class QishuiDatabase : RoomDatabase() {
@@ -123,6 +150,8 @@ abstract class QishuiDatabase : RoomDatabase() {
     abstract fun sourceTrackDao(): SourceTrackDao
     abstract fun editProjectDao(): EditProjectDao
     abstract fun exportPackageDao(): ExportPackageDao
+    abstract fun favoritesDao(): FavoritesDao
+    abstract fun musicSourceDao(): MusicSourceDao
 }
 
 internal fun DownloadTaskEntity.toDomain(): DownloadTask = DownloadTask(

@@ -1,4 +1,4 @@
-package cn.qishui.tool.feature.video
+﻿package cn.qishui.tool.feature.video
 
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -111,14 +111,10 @@ fun VideoEditScreen(
                 title = title,
                 onBack = onBack,
                 actionContent = {
-                    InfoHintAction(
-                        hint = hint,
-                        expanded = hintVisible,
-                        onToggle = { hintVisible = !hintVisible },
-                    )
+                    InfoHintAction(hint = hint, onOpen = { hintVisible = true })
                 },
             )
-            ScreenScroll {
+            ScreenScroll(modifier = Modifier.weight(1f)) {
                 InfoHintBox(hint = hint, visible = hintVisible, onDismiss = { hintVisible = false })
 
                 SectionHeaderCompat(
@@ -219,22 +215,14 @@ fun VideoEditScreen(
                         ) {
                             TimeStepperField(
                                 label = "开始时间",
-                                minutes = (state.startSec / 60).toInt(),
-                                seconds = (state.startSec % 60).toInt(),
-                                millis = ((state.startSec % 1) * 1000).toInt(),
-                                onMinutes = { viewModel.setStartSec((it * 60).toFloat()) },
-                                onSeconds = { viewModel.setStartSec((it).toFloat()) },
-                                onMillis = { viewModel.setStartSec(it / 1000f) },
+                                valueMs = (state.startSec * 1000f).toLong(),
+                                onValueChange = { viewModel.setStartSec(it / 1000f) },
                                 modifier = Modifier.weight(1f),
                             )
                             TimeStepperField(
                                 label = "结束时间",
-                                minutes = (state.endSec / 60).toInt(),
-                                seconds = (state.endSec % 60).toInt(),
-                                millis = ((state.endSec % 1) * 1000).toInt(),
-                                onMinutes = { viewModel.setEndSec((it * 60).toFloat()) },
-                                onSeconds = { viewModel.setEndSec((it).toFloat()) },
-                                onMillis = { viewModel.setEndSec(it / 1000f) },
+                                valueMs = (state.endSec * 1000f).toLong(),
+                                onValueChange = { viewModel.setEndSec(it / 1000f) },
                                 modifier = Modifier.weight(1f),
                             )
                         }

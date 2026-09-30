@@ -28,6 +28,10 @@ data class SourceTrackEntity(
     val file_hash: String?,
     val cover_uri: String?,
     val created_at: Long,
+    /** 来源平台：local / kw / kg / tx / wy / mg。本地导入为 local。 */
+    val source_code: String?,
+    /** 平台歌曲 id（songmid / hash），lx 音源求播放地址必需。 */
+    val platform_song_id: String?,
 )
 
 @Dao
@@ -64,6 +68,8 @@ internal fun SourceTrackEntity.toDomain(): SourceTrack = SourceTrack(
     lyrics = lyrics,
     fileHash = file_hash,
     coverUri = cover_uri,
+    sourceCode = source_code,
+    platformSongId = platform_song_id,
 )
 
 internal fun SourceTrack.toEntity(createdAt: Long): SourceTrackEntity = SourceTrackEntity(
@@ -83,4 +89,6 @@ internal fun SourceTrack.toEntity(createdAt: Long): SourceTrackEntity = SourceTr
     file_hash = fileHash,
     cover_uri = coverUri,
     created_at = createdAt,
+    source_code = sourceCode,
+    platform_song_id = platformSongId,
 )

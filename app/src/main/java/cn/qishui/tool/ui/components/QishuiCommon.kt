@@ -39,6 +39,7 @@ import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -638,17 +639,47 @@ fun PrimaryButton(
     }
 }
 
+/** 播放/暂停圆形按钮。原先放在 feature/video 里被 edit 反向引用，移到通用组件。 */
+@Composable
+fun PlayCircleButton(
+    playing: Boolean,
+    onClick: () -> Unit,
+    enabled: Boolean = true,
+    size: androidx.compose.ui.unit.Dp = 44.dp,
+) {
+    Surface(
+        onClick = onClick,
+        enabled = enabled,
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.primaryContainer,
+        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+        modifier = Modifier.size(size),
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            LucideIcon(
+                icon = if (playing) R.drawable.ic_pause else R.drawable.ic_play,
+                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                size = size * 0.5f,
+            )
+        }
+    }
+}
+
 @Composable
 fun ScreenScroll(
     modifier: Modifier = Modifier,
+    bottomPadding: Dp = 96.dp,
     content: @Composable () -> Unit,
 ) {
     Column(
         modifier = modifier
-            .fillMaxSize()
+            // 只吃满宽，高度由调用方给 weight。
+            // 以前写死 fillMaxSize()，在 FunctionShell 的竖排里会把底栏顶出屏幕，
+            // 结果每个功能页的「保存 / 导出」按钮都看不见。
+            .fillMaxWidth()
             .verticalScroll(rememberScrollState())
             // ponytail: 底部留出悬浮导航条高度，避免最后一张卡片被遮住
-            .padding(start = 20.dp, end = 20.dp, bottom = 96.dp),
+            .padding(start = 20.dp, end = 20.dp, bottom = bottomPadding),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         content()

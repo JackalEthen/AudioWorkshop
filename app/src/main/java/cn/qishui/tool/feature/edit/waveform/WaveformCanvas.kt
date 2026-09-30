@@ -14,9 +14,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -49,8 +51,8 @@ fun WaveformCanvas(
     }
 
     val waveColor = MaterialTheme.colorScheme.primary
-    val trackColor = Color(0xFF3A3550)
-    val dimColor = Color.Black.copy(alpha = 0.55f)
+    val trackColor = MaterialTheme.colorScheme.surfaceContainerHighest
+    val waveMuted = waveColor.copy(alpha = 0.28f)
     val handleColor = MaterialTheme.colorScheme.primary
     val playheadColor = MaterialTheme.colorScheme.tertiary
 
@@ -113,47 +115,71 @@ fun WaveformCanvas(
     ) {
         val width = size.width
         if (width <= 0f) return@Canvas
+        val pinSpace = PIN_SPACE.toPx()
+        val blockTop = pinSpace
+        val blockHeight = (size.height - pinSpace * 2f).coerceAtLeast(1f)
         // DrawScope 默认不裁剪，波形会画到画布外，先夹住
         clipRect(left = 0f, top = 0f, right = width, bottom = size.height) {
-        // 深色底 + 圆角，选中区才对比得出来
+        // 浅色底 + 圆角，选中区才对比得出来
         drawRoundRect(
             color = trackColor,
-            size = size,
-            cornerRadius = androidx.compose.ui.geometry.CornerRadius(8.dp.toPx()),
+            topLeft = Offset(0f, blockTop),
+            size = Size(width, blockHeight),
+            cornerRadius = CornerRadius(8.dp.toPx()),
         )
-        drawPeaks(peaks, waveColor)
+        // 选区外的波形画淡一层，不再叠黑色蒙版（浅底叠黑会发脏）
+        drawPeaks(peaks, waveMuted, blockTop, blockHeight)
         val startX = WaveformGeometry.timeToX(selection.startUs, durationUs, width)
         val endX = WaveformGeometry.timeToX(selection.endUs, durationUs, width)
-        // 选区外压暗
-        drawRect(color = dimColor, size = Size(startX.coerceIn(0f, width), size.height))
-        drawRect(
-            color = dimColor,
-            topLeft = Offset(endX.coerceIn(0f, width), 0f),
-            size = Size((width - endX).coerceAtLeast(0f), size.height),
-        )
-        // 选区两端的手柄：竖线 + 顶部圆点 + 底部圆点
-        drawHandle(startX, handleColor)
-        drawHandle(endX, handleColor)
+        clipRect(
+            left = startX.coerceIn(0f, width),
+            top = blockTop,
+            right = endX.coerceIn(0f, width),
+            bottom = blockTop + blockHeight,
+        ) {
+            drawPeaks(peaks, waveColor, blockTop, blockHeight)
+        }
+        // 起点手柄在波形下方，终点在波形上方，都是水滴形
+        drawHandle(startX, handleColor, blockTop, blockHeight, below = true)
+        drawHandle(endX, handleColor, blockTop, blockHeight, below = false)
         val playheadX = WaveformGeometry.timeToX(positionUs, durationUs, width)
         drawRect(
             color = playheadColor,
-            topLeft = Offset(playheadX.coerceIn(0f, (width - PLAYHEAD_WIDTH_PX).coerceAtLeast(0f)), 0f),
-            size = Size(PLAYHEAD_WIDTH_PX, size.height),
+            topLeft = Offset(playheadX.coerceIn(0f, (width - PLAYHEAD_WIDTH_PX).coerceAtLeast(0f)), blockTop),
+            size = Size(PLAYHEAD_WIDTH_PX, blockHeight),
         )
         }
     }
 }
 
-private fun DrawScope.drawHandle(x: Float, color: Color) {
-    val cx = x.coerceIn(HANDLE_DOT_R, size.width - HANDLE_DOT_R)
+private fun DrawScope.drawHandle(
+    x: Float,
+    color: Color,
+    blockTop: Float,
+    blockHeight: Float,
+    below: Boolean,
+) {
+    val r = PIN_RADIUS.toPx()
+    val cx = x.coerceIn(r, (size.width - r).coerceAtLeast(r))
     drawLine(
         color = color,
-        start = Offset(cx, 0f),
-        end = Offset(cx, size.height),
+        start = Offset(cx, blockTop),
+        end = Offset(cx, blockTop + blockHeight),
         strokeWidth = HANDLE_LINE_PX,
     )
-    drawCircle(color = color, radius = HANDLE_DOT_R, center = Offset(cx, HANDLE_DOT_R))
-    drawCircle(color = color, radius = HANDLE_DOT_R, center = Offset(cx, size.height - HANDLE_DOT_R))
+    // 水滴：圆 + 指向波形的三角，union 后就是参考示例里的别针造型
+    val cy = if (below) blockTop + blockHeight + r else blockTop - r
+    val toward = if (below) -1f else 1f
+    drawPath(
+        path = Path().apply {
+            moveTo(cx, cy + toward * r * 1.5f)
+            lineTo(cx - r * 0.75f, cy)
+            lineTo(cx + r * 0.75f, cy)
+            close()
+        },
+        color = color,
+    )
+    drawCircle(color = color, radius = r, center = Offset(cx, cy))
 }
 
 @Composable
@@ -176,10 +202,15 @@ private fun WaveformSkeleton(modifier: Modifier) {
     }
 }
 
-private fun DrawScope.drawPeaks(peaks: WaveformPeaks, waveColor: Color) {
+private fun DrawScope.drawPeaks(
+    peaks: WaveformPeaks,
+    color: Color,
+    blockTop: Float,
+    blockHeight: Float,
+) {
     val bucketCount = minOf(peaks.min.size, peaks.max.size)
     if (bucketCount <= 0) return
-    val centerY = size.height / 2f
+    val centerY = blockTop + blockHeight / 2f
     val step = max(1, ceil(bucketCount / size.width.coerceAtLeast(1f)).toInt())
     val bucketWidth = (size.width / ceil(bucketCount / step.toFloat()).coerceAtLeast(1f)).coerceAtLeast(1f)
     var index = 0
@@ -193,9 +224,9 @@ private fun DrawScope.drawPeaks(peaks: WaveformPeaks, waveColor: Color) {
             cursor++
         }
         index += step
-        val barHeight = abs((low - high) * centerY).coerceAtLeast(MIN_BAR_PX)
+        val barHeight = abs((low - high) * (blockHeight / 2f)).coerceAtLeast(MIN_BAR_PX)
         drawRect(
-            color = waveColor,
+            color = color,
             topLeft = Offset(index * bucketWidth, centerY - barHeight / 2f),
             size = Size(bucketWidth, barHeight),
         )
@@ -203,9 +234,9 @@ private fun DrawScope.drawPeaks(peaks: WaveformPeaks, waveColor: Color) {
 }
 
 private val CANVAS_HEIGHT = 120.dp
+private val PIN_SPACE = 18.dp
+private val PIN_RADIUS = 9.dp
 private val HANDLE_TOUCH_TARGET = 48.dp
-private const val HANDLE_WIDTH_PX = 3f
-private const val HANDLE_DOT_R = 7f
 private const val HANDLE_LINE_PX = 2f
 private const val PLAYHEAD_WIDTH_PX = 3f
 private const val MIN_BAR_PX = 2f

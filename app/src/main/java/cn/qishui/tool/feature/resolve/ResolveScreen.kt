@@ -1,4 +1,4 @@
-package cn.qishui.tool.feature.resolve
+﻿package cn.qishui.tool.feature.resolve
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -42,7 +42,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cn.qishui.tool.data.media.LrcCodec
-import cn.qishui.tool.data.media.QsmusicLyricParser
+import cn.qishui.tool.data.media.LyricsCodec
 import cn.qishui.tool.domain.model.ResolvedTrack
 import cn.qishui.tool.ui.components.TopSnackbarHost
 import cn.qishui.tool.ui.components.FloatingCard
@@ -106,7 +106,7 @@ fun ResolveScreen(
                 menu = true,
                 onAction = onOpenRecords,
             )
-            ScreenScroll {
+            ScreenScroll(modifier = Modifier.weight(1f)) {
                 FloatingCard(modifier = Modifier.fillMaxWidth()) {
                     Column(
                         modifier = Modifier.padding(14.dp),
@@ -328,7 +328,7 @@ private fun TrackResultCard(
 }
 
 private fun lrcTextOf(track: ResolvedTrack): String =
-    LrcCodec.toLrc(QsmusicLyricParser().parse(track.lyrics))
+    LrcCodec.toLrc(LyricsCodec.parse(track.lyrics))
 
 @Composable
 private fun PlaybackBar(

@@ -1,5 +1,7 @@
 package cn.qishui.tool.ui.components
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -8,14 +10,17 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import cn.qishui.tool.R
 import java.util.Locale
 import kotlin.math.abs
 
@@ -56,6 +61,142 @@ fun ParamCard(
     }
 }
 
+/** 均衡器那种「频段 | 滑杆 | 增益」三列行。 */
+@Composable
+fun BandRow(
+    label: String,
+    value: Float,
+    range: ClosedFloatingPointRange<Float>,
+    onChange: (Float) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.width(72.dp),
+            maxLines = 1,
+        )
+        QishuiSlider(
+            value = value.coerceIn(range.start, range.endInclusive),
+            onValueChange = onChange,
+            valueRange = range,
+            label = label,
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            text = if (kotlin.math.abs(value) < 0.01f) {
+                "不变"
+            } else {
+                String.format(Locale.getDefault(), "%+.1f dB", value)
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.End,
+            modifier = Modifier.width(56.dp),
+            maxLines = 1,
+        )
+    }
+}
+
+/** 「标签 …… 值 >」这种点开选一个选项的行，参考示例里到处在用。 */
+@Composable
+fun OptionRow(
+    label: String,
+    value: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    PlainCard(modifier = modifier.fillMaxWidth().clickable(onClick = onClick)) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            LucideIcon(
+                icon = R.drawable.ic_chevron_right,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                size = 18.dp,
+            )
+        }
+    }
+}
+
+/** 离散选项用分段选择器：三选一的东西不该给滑杆。 */
+@Composable
+fun ChoiceRow(
+    label: String,
+    options: List<String>,
+    selectedIndex: Int,
+    onSelect: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+    caption: String? = null,
+) {
+    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        if (caption != null) {
+            Text(
+                text = caption,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        SegmentedControl(
+            options = options,
+            selectedIndex = selectedIndex.coerceIn(0, options.lastIndex),
+            onSelect = onSelect,
+        )
+    }
+}
+
+/** 参考示例里那种居中的大数值盒，配一组步进按钮用。 */
+@Composable
+fun ValueDisplayBox(
+    valueText: String,
+    unit: String,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(QishuiFieldShape)
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .padding(horizontal = 20.dp, vertical = 14.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = valueText,
+            style = MaterialTheme.typography.headlineMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+        )
+        Spacer(modifier = Modifier.width(6.dp))
+        Text(
+            text = unit,
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
 @Composable
 fun ParamRow(
     label: String,
@@ -85,10 +226,11 @@ fun ParamRow(
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        Slider(
+        QishuiSlider(
             value = value.coerceIn(range.start, range.endInclusive),
             onValueChange = onChange,
             valueRange = range,
+            label = label,
         )
         if (stepButtons) {
             StepperRow(step = niceStep(range), onChange = onChange)
@@ -98,19 +240,36 @@ fun ParamRow(
 
 @Composable
 private fun StepperRow(step: Float, onChange: (Float) -> Unit) {
-    val big = step * 2f
-    val minusStep = "-${formatNumber(step)}"
-    val plusStep = "+${formatNumber(step)}"
-    val minusBig = "-${formatNumber(big)}"
-    val plusBig = "+${formatNumber(big)}"
+    StepperRow(
+        labels = arrayOf(
+            "-${formatNumber(step * 2f)}",
+            "-${formatNumber(step)}",
+            "+${formatNumber(step)}",
+            "+${formatNumber(step * 2f)}",
+        ),
+        deltas = floatArrayOf(-step * 2f, -step, step, step * 2f),
+        onChange = onChange,
+    )
+}
+
+/**
+ * 四个自定义步进按钮。「减半音 / 加半音」这种非等差步长没法用 niceStep 推出来，
+ * 由调用方直接给标签和增量。
+ */
+@Composable
+fun StepperRow(
+    labels: Array<String>,
+    deltas: FloatArray,
+    onChange: (Float) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        StepButton(minusBig, Modifier.weight(1f)) { onChange(-big) }
-        StepButton(minusStep, Modifier.weight(1f)) { onChange(-step) }
-        StepButton(plusStep, Modifier.weight(1f)) { onChange(step) }
-        StepButton(plusBig, Modifier.weight(1f)) { onChange(big) }
+        labels.forEachIndexed { index, text ->
+            StepButton(text, Modifier.weight(1f)) { onChange(deltas[index]) }
+        }
     }
 }
 

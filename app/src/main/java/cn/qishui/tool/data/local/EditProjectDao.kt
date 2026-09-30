@@ -9,6 +9,8 @@ import androidx.room.Update
 import cn.qishui.tool.domain.model.EditOperation
 import cn.qishui.tool.domain.model.EditProject
 import cn.qishui.tool.domain.model.EditTimeRange
+import cn.qishui.tool.domain.model.FadeCurve
+import cn.qishui.tool.domain.model.JoinTransition
 import kotlinx.coroutines.flow.Flow
 
 @Entity(tableName = "edit_projects")
@@ -21,9 +23,13 @@ data class EditProjectEntity(
     val fade_in_ms: Long?,
     val fade_out_ms: Long?,
     val lyric_offset_ms: Long?,
+    val lyrics_override: String?,
     val joined_track_ids: String,
     val join_transition: String,
     val transition_ms: Long,
+    val normalize_sources: Boolean,
+    val trailing_silence_ms: Long,
+    val fade_curve: String,
     val created_at: Long,
     val updated_at: Long,
 )
@@ -55,7 +61,13 @@ internal fun EditProjectEntity.toDomain(): EditProject = EditProject(
     fadeInMs = fade_in_ms,
     fadeOutMs = fade_out_ms,
     lyricOffsetMs = lyric_offset_ms,
+    lyricsOverride = lyrics_override,
     joinedTrackIds = joined_track_ids.split(',').filter(String::isNotBlank),
+    joinTransition = JoinTransition.entries.firstOrNull { it.name == join_transition } ?: JoinTransition.NORMAL,
+    transitionMs = transition_ms,
+    normalizeSources = normalize_sources,
+    trailingSilenceMs = trailing_silence_ms,
+    fadeCurve = FadeCurve.entries.firstOrNull { it.name == fade_curve } ?: FadeCurve.LINEAR,
     createdAtEpochMillis = created_at,
     updatedAtEpochMillis = updated_at,
 )
@@ -69,10 +81,14 @@ internal fun EditProject.toEntity(): EditProjectEntity = EditProjectEntity(
     fade_in_ms = fadeInMs,
     fade_out_ms = fadeOutMs,
     lyric_offset_ms = lyricOffsetMs,
+    lyrics_override = lyricsOverride,
     joined_track_ids = joinedTrackIds.joinToString(","),
     created_at = createdAtEpochMillis,
-      join_transition = joinTransition.name,
-      transition_ms = transitionMs,
+    join_transition = joinTransition.name,
+    transition_ms = transitionMs,
+    normalize_sources = normalizeSources,
+    trailing_silence_ms = trailingSilenceMs,
+    fade_curve = fadeCurve.name,
     updated_at = updatedAtEpochMillis,
 )
 

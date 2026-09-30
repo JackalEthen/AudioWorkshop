@@ -18,5 +18,8 @@ interface SettingsRepository {
     fun updateDownloadDirectory(treeUri: String?)
     fun updateConnections(count: Int)
     fun updateAutoNamePattern(pattern: String)
+
+    /** 播放器音质档位，取值见 [cn.qishui.tool.domain.player.PlaybackQuality]。 */
+    fun updatePlaybackQuality(quality: String)
     fun resetAppearance()
 }

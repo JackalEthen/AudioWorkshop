@@ -13,6 +13,7 @@ import androidx.datastore.preferences.preferencesDataStoreFile
 import cn.qishui.tool.domain.SettingsRepository
 import cn.qishui.tool.domain.model.AppSettings
 import cn.qishui.tool.domain.model.DEFAULT_CARD_ALPHA
+import cn.qishui.tool.domain.model.DEFAULT_PLAYBACK_QUALITY
 import cn.qishui.tool.domain.model.DEFAULT_WALLPAPER_ALPHA
 import cn.qishui.tool.domain.model.FontScale
 import java.io.IOException
@@ -63,6 +64,8 @@ class DataStoreSettingsRepository(
 
     override fun updateAutoNamePattern(pattern: String) = write(Keys.autoNamePattern, pattern)
 
+    override fun updatePlaybackQuality(quality: String) = write(Keys.playbackQuality, quality)
+
     override fun resetAppearance() {
         scope.launch {
             dataStore.edit { preferences ->
@@ -90,6 +93,7 @@ class DataStoreSettingsRepository(
         downloadDirectoryUri = preferences[Keys.downloadDirectory],
         downloadConnections = preferences[Keys.connections] ?: 3,
         autoNamePattern = preferences[Keys.autoNamePattern].orEmpty(),
+        playbackQuality = preferences[Keys.playbackQuality] ?: DEFAULT_PLAYBACK_QUALITY,
     ).sanitized()
 
     private object Keys {
@@ -103,6 +107,7 @@ class DataStoreSettingsRepository(
         val downloadDirectory = stringPreferencesKey("download_directory_uri")
         val connections = intPreferencesKey("download_connections")
         val autoNamePattern = stringPreferencesKey("auto_name_pattern")
+        val playbackQuality = stringPreferencesKey("playback_quality")
         val appearanceKeys = listOf(
             theme,
             font,

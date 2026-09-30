@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    lx 自定义源会用明文 http:// 的裸 IP 端点（比如 grass 源的
+    http://97.64.37.235/...），Android 9+ 默认拦明文，不放开的话
+    音源取播放地址会直接报
+    "CLEARTEXT communication ... not permitted by network security policy"。
+
+    端点由用户导入的脚本决定、无法枚举，所以只能全局放开。
+    与 lx-music-mobile 的配置一致。
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>
