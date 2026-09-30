@@ -1,4 +1,4 @@
-package cn.qishui.tool.feature.player
+﻿package cn.qishui.tool.feature.player
 
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -49,6 +49,12 @@ fun PlayerHomeScreen(
     onBack: () -> Unit,
     onOpenSearch: () -> Unit,
     onOpenFavorites: () -> Unit,
+    /**
+     * 全屏播放页由 [PlayerSheet] 承载，而它挂在这一屏。
+     * 提升到外面由调用方持有，这样搜索页点唱片也能直接把它拉起来，
+     * 不用为了开播放页先跳回来。
+     */
+    sheetVisible: Boolean,
     onSheetVisibleChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -73,17 +79,16 @@ val soundEffect by viewModel.soundEffect.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
     var miniExpanded by remember { mutableStateOf(false) }
-    var sheetVisible by remember { mutableStateOf(false) }
     var showLyrics by remember { mutableStateOf(false) }
     var sleepSheetVisible by remember { mutableStateOf(false) }
     var settingsSheetVisible by remember { mutableStateOf(false) }
+    var soundEffectSheetVisible by remember { mutableStateOf(false) }
     var queueSheetVisible by remember { mutableStateOf(false) }
     var actionTarget by remember { mutableStateOf<SourceTrackRow?>(null) }
 
     // 全屏播放页盖在整屏上时，返回键应该先收起它，而不是让 NavController 把播放页弹掉。
     // 不拦的话会直接退回上一个 Tab，而且底栏因为 sheetVisible 没复位就再也不出现。
     BackHandler(enabled = sheetVisible) {
-        sheetVisible = false
         onSheetVisibleChange(false)
     }
 
@@ -134,7 +139,6 @@ val soundEffect by viewModel.soundEffect.collectAsState()
             onTogglePlay = viewModel::togglePlay,
             onNext = viewModel::next,
             onOpenPlayer = {
-                sheetVisible = true
                 // 播放页盖住整屏时要把底部导航栏藏掉
                 onSheetVisibleChange(true)
             },
@@ -205,7 +209,6 @@ val soundEffect by viewModel.soundEffect.collectAsState()
             onToggleLyrics = { showLyrics = !showLyrics },
             onToggleFavorite = { current?.mediaId?.let(viewModel::toggleFavorite) },
             onDismiss = {
-                sheetVisible = false
                 onSheetVisibleChange(false)
             },
             onTogglePlay = viewModel::togglePlay,
@@ -237,10 +240,22 @@ val soundEffect by viewModel.soundEffect.collectAsState()
         PlayerSettingsSheet(
             appearance = appearance,
             soundEffect = soundEffect,
-            onPickSoundEffect = viewModel::setSoundEffect,
+            // 音效单独一页，设置面板只留入口，否则十几个预设会把面板撑爆
+            onOpenSoundEffect = {
+                settingsSheetVisible = false
+                soundEffectSheetVisible = true
+            },
             onToggleParticle = viewModel::setParticleCoverEnabled,
             onToggleLyricDrag = viewModel::setLyricDragEnabled,
             onDismiss = { settingsSheetVisible = false },
+        )
+    }
+
+    if (soundEffectSheetVisible) {
+        SoundEffectSheet(
+            selected = soundEffect,
+            onPick = viewModel::setSoundEffect,
+            onDismiss = { soundEffectSheetVisible = false },
         )
     }
 

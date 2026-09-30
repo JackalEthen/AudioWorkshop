@@ -19,6 +19,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
@@ -33,6 +34,8 @@ fun LyricsPanel(
     modifier: Modifier = Modifier,
     activeIndex: Int = -1,
     onLineClick: ((Int) -> Unit)? = null,
+    /** 播放页整屏居中，编辑页沿用默认左对齐（要跟表单里的其它文本对齐）。 */
+    textAlign: TextAlign = TextAlign.Start,
 ) {
     val lines = lyrics.lines
     val cursor by remember(lyrics, positionUs) {
@@ -64,6 +67,7 @@ fun LyricsPanel(
                 isCurrent = index == cursor.lineIndex,
                 isSelected = index == selected,
                 currentWordIndex = if (index == cursor.lineIndex) cursor.wordIndex else -1,
+                textAlign = textAlign,
                 modifier = if (onLineClick != null) {
                     Modifier.clickable { onLineClick(index) }
                 } else {
@@ -80,6 +84,7 @@ private fun LyricRow(
     isCurrent: Boolean,
     isSelected: Boolean,
     currentWordIndex: Int,
+    textAlign: TextAlign,
     modifier: Modifier = Modifier,
 ) {
     val text = if (isCurrent && currentWordIndex >= 0) {
@@ -104,6 +109,7 @@ private fun LyricRow(
         } else {
             MaterialTheme.typography.bodyMedium
         },
+        textAlign = textAlign,
         fontWeight = when {
             isSelected -> FontWeight.Bold
             isCurrent -> FontWeight.Bold

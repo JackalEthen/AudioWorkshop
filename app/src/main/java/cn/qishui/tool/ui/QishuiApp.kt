@@ -173,6 +173,9 @@ fun QishuiApp(
                             onBack = { navController.popBackStack() },
                             onOpenSearch = { navController.navigate(PlayerRoute.Search) },
                             onOpenFavorites = { navController.navigate(PlayerRoute.Favorites) },
+                            // 播放页由这一屏承载，所以开关状态提到外面 ——
+                            // 搜索页点唱片要能直接把它拉起来。
+                            sheetVisible = playerSheetVisible,
                             onSheetVisibleChange = { playerSheetVisible = it },
                         )
                     }
@@ -187,6 +190,11 @@ fun QishuiApp(
                             container = container,
                             onBack = { navController.popBackStack() },
                             onOpenSourceSettings = { navController.navigate(SettingsRoute.PlayerSource) },
+                            onOpenPlayer = {
+                                // 播放页挂在播放页那一屏，先切回去再把它拉起来
+                                navController.popBackStack()
+                                playerSheetVisible = true
+                            },
                         )
                     }
                     composable("video_extract") {

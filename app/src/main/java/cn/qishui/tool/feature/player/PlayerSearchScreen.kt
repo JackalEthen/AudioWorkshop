@@ -50,6 +50,7 @@ import cn.qishui.tool.ui.components.EmptyState
 import cn.qishui.tool.ui.components.LucideIcon
 import cn.qishui.tool.ui.components.QishuiTopBar
 import cn.qishui.tool.ui.components.SongRow
+import cn.qishui.tool.ui.components.VinylRecord
 
 /** 播放器的二级路由。 */
 object PlayerRoute {
@@ -71,6 +72,7 @@ fun PlayerSearchScreen(
     container: AppContainer,
     onBack: () -> Unit,
     onOpenSourceSettings: () -> Unit,
+    onOpenPlayer: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val factory = remember(container) {
@@ -83,6 +85,7 @@ fun PlayerSearchScreen(
             lxSourceRuntime = container.lxSourceRuntime,
         )
     }
+    val playback = container.playbackConnection
     val viewModel: PlayerSearchViewModel = viewModel(factory = factory)
 
     val query by viewModel.query.collectAsState()
@@ -94,6 +97,11 @@ fun PlayerSearchScreen(
     val busyHitId by viewModel.busyHitId.collectAsState()
     val message by viewModel.message.collectAsState()
     val sourceState by viewModel.sourceState.collectAsState()
+
+    // 顶栏唱片：正在播就转，没在播就静止；点一下进全屏播放页。
+    val playbackState by playback.state.collectAsState()
+    val queue by playback.queue.collectAsState()
+    val currentCover = queue.getOrNull(playbackState.currentIndex)?.coverUri
 
     // 音源没就绪时给出明确引导，不然用户只会看到「搜不出来」。
     val needsSource = sourceState !is LxSourceState.Ready
@@ -119,6 +127,15 @@ fun PlayerSearchScreen(
             QishuiTopBar(
                 title = "搜索",
                 onBack = onBack,
+                actionContent = {
+                    VinylRecord(
+                        coverUri = currentCover,
+                        playing = playbackState.isPlaying,
+                        // 有歌就能点进去，没封面只是显示成默认图案
+                        enabled = playbackState.hasCurrentSong,
+                        onClick = onOpenPlayer,
+                    )
+                },
             )
 
             OutlinedTextField(

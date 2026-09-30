@@ -1,11 +1,19 @@
-package cn.qishui.tool.feature.player
+﻿package cn.qishui.tool.feature.player
 
 import androidx.compose.animation.core.animate
+import cn.qishui.tool.ui.components.QishuiSlider
+import androidx.compose.ui.draw.alpha
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,7 +32,6 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -38,8 +45,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -197,72 +202,51 @@ fun PlayerSheet(
                     onClick = onOpenSettings,
                 )
             }
-    // 封面 ⇄ 歌词的滑动进度，0 = 封面，1 = 歌词。
-    // 两页都画出来用同一个进度驱动位置和透明度，所以切换是连续滑动而不是硬切。
-    val pageWidthPx = with(LocalDensity.current) {
-        LocalConfiguration.current.screenWidthDp.dp.toPx()
-    }
-    var pageProgress by remember { mutableFloatStateOf(if (showLyrics) 1f else 0f) }
-
-    Column(
-        modifier = Modifier
-            .weight(1f)
-            .fillMaxWidth()
-            .pointerInput(hasSong) {
-                if (!hasSong) return@pointerInput
-                detectHorizontalDragGestures(
-                    onHorizontalDrag = { change, dragAmount ->
-                        // 左滑前进，右滑后退，两头都到边界
-                        pageProgress = (pageProgress - dragAmount / pageWidthPx).coerceIn(0f, 1f)
-                        change.consume()
-                    },
-                    onDragEnd = {
-                        val target = if (pageProgress > 0.5f) 1f else 0f
-                        if ((target > 0.5f) != showLyrics) onToggleLyrics()
-                        // 松手后补一段归位动画，切页才是滑顺的
-                        scope.launch {
-                            animate(
-                                initialValue = pageProgress,
-                                targetValue = target,
-                                animationSpec = tween(SwipeSettleMs),
-                            ) { value, _ -> pageProgress = value }
-                        }
-                    },
-                    onDragCancel = {
-                        scope.launch {
-                            animate(
-                                initialValue = pageProgress,
-                                targetValue = if (showLyrics) 1f else 0f,
-                                animationSpec = tween(SwipeSettleMs),
-                            ) { value, _ -> pageProgress = value }
-                        }
-                    },
-                )
-            },
-    ) {
-        Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-            // 歌词页画在封面下面，往左滑会从右边露出来
-            LyricsPage(
-                lyrics = lyrics,
-                positionMs = state.positionMs,
-                offsetX = (1f - pageProgress) * pageWidthPx,
-                alpha = pageProgress.coerceIn(0f, 1f),
-            )
-            // 封面往左退并淡出
-            CoverPage(
-                current = current,
-                offsetX = -pageProgress * pageWidthPx * 0.4f,
-                alpha = 1f - pageProgress * 0.7f,
-            )
-        }
-    }
+            // 封面 ⇄ 歌词：点击切换。不用左右滑 —— 两页同屏叠加时拖拽手势会和
+            // 父级的下拉关闭打架，而且半透明叠加看着脏。AnimatedContent 只画当前页。
+            AnimatedContent(
+                targetState = showLyrics,
+                transitionSpec = {
+                    val forward = targetState
+                    (slideInHorizontally(tween(PageSwapMs)) { width -> if (forward) width / 3 else -width / 3 } +
+                        fadeIn(tween(PageSwapMs)))
+                        .togetherWith(
+                            slideOutHorizontally(tween(PageSwapMs)) { width -> if (forward) -width / 3 else width / 3 } +
+                                fadeOut(tween(PageFadeOutMs)),
+                        )
+                },
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                label = "cover-lyrics",
+            ) { lyricsVisible ->
+                if (lyricsVisible) {
+                    LyricsPage(
+                        lyrics = lyrics,
+                        positionMs = state.positionMs,
+                        onClick = onToggleLyrics,
+                    )
+                } else {
+                    CoverPage(
+                        current = current,
+                        onClick = onToggleLyrics,
+                    )
+                }
+            }
 
             // ---- 进度条 ----
             val duration = state.durationMs.coerceAtLeast(1L)
-            Slider(
+            // 不用 M3 默认 Slider：它的断轨和竖条拇指跟项目风格对不上。
+            // 轨道收窄、拇指是圆点，按住才变粗。
+            QishuiSlider(
                 value = state.positionMs.toFloat().coerceIn(0f, duration.toFloat()),
                 onValueChange = { onSeek(it.toLong()) },
                 valueRange = 0f..duration.toFloat(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 6.dp)
+                    .alpha(if (hasSong) 1f else 0.35f),
+                label = "播放进度",
                 enabled = hasSong,
             )
             Row(
@@ -366,21 +350,29 @@ fun PlayerSheet(
 
 private val DragDismissThreshold = 160f
 
-/** 封面 ⇄ 歌词松手后的归位动画时长（毫秒）。 */
-private val SwipeSettleMs = 260
+/** 封面 ⇄ 歌词切换动画时长（毫秒）。 */
+private const val PageSwapMs = 260
 
-/** 封面页。位移和透明度由滑动进度驱动。 */
+/** 旧页淡出比新页淡入略短，切换才显得干脆，不拖泥带水。 */
+private const val PageFadeOutMs = 180
+
+/** 封面页。整页可点，点一下切到歌词。 */
 @Composable
 private fun CoverPage(
     current: QueueItem?,
-    offsetX: Float,
-    alpha: Float,
+    onClick: () -> Unit,
 ) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .offset { IntOffset(offsetX.roundToInt(), 0) }
-            .graphicsLayer { this.alpha = alpha.coerceIn(0f, 1f) },
+            // indication = null：整页切换不要水波纹/按压阴影，
+            // 满屏的遮罩反馈看着像出错了，而不是「切了一下页」。
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                enabled = current != null,
+                onClick = onClick,
+            ),
         contentAlignment = Alignment.Center,
     ) {
         Box(
@@ -408,19 +400,22 @@ private fun CoverPage(
     }
 }
 
-/** 歌词页。没歌词时显示「暂无歌词」，照样能进来。 */
+/** 歌词页。整页可点，点一下切回封面。没歌词时显示「暂无歌词」，照样能进来。 */
 @Composable
 private fun LyricsPage(
     lyrics: LyricsTrack,
     positionMs: Long,
-    offsetX: Float,
-    alpha: Float,
+    onClick: () -> Unit,
 ) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .offset { IntOffset(offsetX.roundToInt(), 0) }
-            .graphicsLayer { this.alpha = alpha.coerceIn(0f, 1f) },
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                enabled = lyrics.lines.isNotEmpty(),
+                onClick = onClick,
+            ),
         contentAlignment = Alignment.Center,
     ) {
         Column(
@@ -439,10 +434,11 @@ private fun LyricsPage(
                     lyrics = lyrics,
                     positionUs = positionMs * 1000L,
                     modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Center,
                 )
             }
             Text(
-                text = "右滑返回封面",
+                text = "点一下回到封面",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
             )
