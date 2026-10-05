@@ -1,0 +1,24 @@
+# 统一文本文件行尾为 LF。
+#
+# 本仓库 core.autocrlf=true，各人平台设置不一；不锁住的话 Windows 检出后
+# 每个文件都变 CRLF，diff 整篇飘红（改写邮箱那次的真实教训）。
+* text=auto eol=lf
+
+# 以下必须是 LF 或保持二进制，否则脚本无法执行、资源会被损坏。
+*.sh   text eol=lf
+*.so   binary
+*.a    binary
+*.apk  binary
+*.jar  binary
+
+# 图片与媒体资源：binary 宏已含 -diff -merge -text
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.webp binary
+*.ico  binary
+*.mp3  binary
+*.mp4  binary
+*.wav  binary
+*.flac binary
