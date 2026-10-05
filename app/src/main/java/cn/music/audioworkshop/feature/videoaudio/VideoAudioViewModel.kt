@@ -28,6 +28,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import cn.music.audioworkshop.feature.edit.export.historyOf
 
 /** 文件名里不能出现的字符，替换成下划线。 */
 private val InvalidFileName = Regex("""[<>:"/\\|?*\u0000-\u001F]""")
@@ -258,7 +259,7 @@ if (target.length() <= 0L) {
                 lyricOffsetMs = 0L,
                 format = current.format,
             )
-            encoderClient.export(job) { result -> onExportResult(fileName, result) }
+            encoderClient.export(job) { result -> onExportResult(job, fileName, result) }
         }
     }
 
@@ -266,14 +267,14 @@ if (target.length() <= 0L) {
         mutableExportState.value.jobId?.let(encoderClient::cancel)
     }
 
-    private fun onExportResult(fileName: String, result: ExportResult) {
+    private fun onExportResult(job: ExportJob, fileName: String, result: ExportResult) {
         when (result) {
             is ExportResult.Failed ->
                 mutableExportState.update { reduceExport(it, ExportEvent.Failed(result.reason)) }
 
             is ExportResult.Completed -> viewModelScope.launch {
                 mutableState.update { it.copy(isWorking = false) }
-                runCatching { exportPublisher.publish(result.outputPath, fileName) }.fold(
+                runCatching { exportPublisher.publish(result.outputPath, fileName, historyOf(job, result)) }.fold(
                     onSuccess = { published ->
                         mutableExportState.update { reduceExport(it, ExportEvent.Succeeded(published.bytes)) }
                         mutableState.update { it.copy(publishedLocation = published.location) }
@@ -293,7 +294,6 @@ if (target.length() <= 0L) {
 
     override fun onCleared() {
         super.onCleared()
-        // 只能暂停，不能 release：audioPlayer 是 AppContainer 里的单例，全应用共用
         audioPlayer.pause()
     }
 

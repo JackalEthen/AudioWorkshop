@@ -68,7 +68,7 @@ extern "C" {
  * [output] 已由调用方按最大长度分配，返回写入的帧数，失败 -1。
  */
 JNIEXPORT jint JNICALL
-Java_cn_qishui_tool_media_effect_StretchBridge_nativeProcess(
+Java_cn_music_audioworkshop_media_effect_StretchBridge_nativeProcess(
         JNIEnv *env,
         jclass clazz,
         jshortArray pcm,
@@ -135,7 +135,7 @@ Java_cn_qishui_tool_media_effect_StretchBridge_nativeProcess(
 
 /** EBU R128 整体响度（LUFS），失败返回 -1000。 */
 JNIEXPORT jfloat JNICALL
-Java_cn_qishui_tool_media_effect_LoudnessBridge_nativeMeasureLufs(
+Java_cn_music_audioworkshop_media_effect_LoudnessBridge_nativeMeasureLufs(
         JNIEnv *env,
         jclass clazz,
         jshortArray pcm,
@@ -169,7 +169,7 @@ Java_cn_qishui_tool_media_effect_LoudnessBridge_nativeMeasureLufs(
 
 /** 按目标 LUFS 就地增益，返回实际施加的增益 dB。 */
 JNIEXPORT jfloat JNICALL
-Java_cn_qishui_tool_media_effect_LoudnessBridge_nativeNormalize(
+Java_cn_music_audioworkshop_media_effect_LoudnessBridge_nativeNormalize(
         JNIEnv *env,
         jclass clazz,
         jshortArray pcm,

@@ -62,22 +62,42 @@ class EncoderService : Service() {
     }
 
     private fun startExport(message: Message) {
-        val replyTo = message.replyTo ?: return
+        val replyTo = message.replyTo
+        android.util.Log.i("QishuiEncoder", "startExport 收到 replyTo=${replyTo != null} path=${message.data.getString(EncoderProtocol.KEY_JOB_PATH)}")
+        if (replyTo == null) return
         val requestedJobId = message.data.getString(EncoderProtocol.KEY_JOB_ID).orEmpty()
-        val job = readJob(message.data.getString(EncoderProtocol.KEY_JOB_PATH))
+        val jobPath = message.data.getString(EncoderProtocol.KEY_JOB_PATH)
+        val job = readJob(jobPath)
         if (job == null) {
+            android.util.Log.e("QishuiEncoder", "readJob 失败 path=$jobPath exists=${jobPath?.let { File(it).isFile }}")
             reply(replyTo, EncoderProtocol.MSG_RESULT, EncoderProtocol.encodeResult(invalidJob(requestedJobId)))
             return
         }
         cancelledJobs.remove(job.jobId)
         worker.execute {
-            val result = engine.execute(
-                job = job,
-                shouldCancel = { cancelledJobs.contains(job.jobId) },
-                onProgress = { progress ->
-                    reply(replyTo, EncoderProtocol.MSG_PROGRESS, EncoderProtocol.encodeProgress(progress))
-                },
-            )
+            val result = runCatching {
+                engine.execute(
+                    job = job,
+                    shouldCancel = { cancelledJobs.contains(job.jobId) },
+                    onProgress = { progress ->
+                        reply(replyTo, EncoderProtocol.MSG_PROGRESS, EncoderProtocol.encodeProgress(progress))
+                    },
+                )
+            }.getOrElse { error ->
+                android.util.Log.e("QishuiEncoder", "execute 抛异常: ${error.javaClass.name}: ${error.message}", error)
+                ExportResult.Failed(
+                    jobId = job.jobId,
+                    stage = ExportStage.PREPARING,
+                    code = "ENGINE_EXCEPTION",
+                    reason = "导出异常：${error.javaClass.simpleName}: ${error.message}",
+                    retryable = false,
+                )
+            }
+            if (result is ExportResult.Failed) {
+                android.util.Log.e("QishuiEncoder", "导出失败 stage=${result.stage} code=${result.code} reason=${result.reason}")
+            } else {
+                android.util.Log.i("QishuiEncoder", "导出完成 ${(result as ExportResult.Completed).outputPath}")
+            }
             cancelledJobs.remove(job.jobId)
             reply(replyTo, EncoderProtocol.MSG_RESULT, EncoderProtocol.encodeResult(result))
         }

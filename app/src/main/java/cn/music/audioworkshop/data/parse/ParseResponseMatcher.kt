@@ -52,6 +52,14 @@ fun match(body: String): ResolvedTrack {
         val resolvedFormat = declaredFormat ?: extensionOfUrl(audioUrl)
         val mediaKind = MediaKind.detect(resolvedFormat, audioUrl)
 
+        // 图文源一次可能返回一组图，下载要一次全下，所以把同类地址都收起来。
+        // 音频/视频源只有一个地址，这里返回单元素。
+        val mediaUrls = if (mediaKind == MediaKind.IMAGE) {
+            collectMediaUrls(root, audioUrl, mediaKind)
+        } else {
+            listOf(audioUrl)
+        }
+
         return ResolvedTrack(
             title = payload.string(FieldSlot.TITLE, mapping),
             artist = payload.string(FieldSlot.ARTIST, mapping),
@@ -67,7 +75,57 @@ fun match(body: String): ResolvedTrack {
             cacheExpiresAtEpochSeconds = root.anyLong(listOf("cache_expire_at", "cacheExpireAt", "expire_at")),
             sourceShareUrl = audioUrl,
             mediaKind = mediaKind,
+            mediaUrls = mediaUrls,
         )
+    }
+
+    /**
+     * 收集返回结构里所有属于 [kind] 的媒体地址，[primary] 排第一个。
+     *
+     * 复用 [findAudioUrlDeep] 的遍历方式（限深限节点），但收集全部而不是取第一个。
+     * 按出现顺序去重：图文源给的是有序数组，顺序就是用户期望的下载顺序。
+     */
+    private fun collectMediaUrls(root: Any?, primary: String, kind: MediaKind): List<String> {
+        val found = LinkedHashSet<String>()
+        found += primary
+        var frontier = listOf(root)
+        var visited = 0
+        repeat(MAX_SEARCH_DEPTH) {
+            val next = mutableListOf<Any?>()
+            for (node in frontier) {
+                when (node) {
+                    is JSONObject -> {
+                        if (++visited > MAX_SEARCH_NODES) return found.toList()
+                        node.keys().forEach { key -> collect(node.opt(key), found, next, kind) }
+                    }
+                    is JSONArray -> {
+                        if (++visited > MAX_SEARCH_NODES) return found.toList()
+                        for (index in 0 until minOf(node.length(), 50)) {
+                            collect(node.opt(index), found, next, kind)
+                        }
+                    }
+                }
+            }
+            frontier = next
+            if (frontier.isEmpty()) return found.toList()
+        }
+        return found.toList()
+    }
+
+    /** 字符串叶子直接收，容器节点放进 [next] 等下一轮展开。 */
+    private fun collect(value: Any?, found: MutableSet<String>, next: MutableList<Any?>, kind: MediaKind) {
+        if (value is String) {
+            if (isMediaUrl(value, kind)) found += value.trim()
+        } else if (value != null && (value is JSONObject || value is JSONArray)) {
+            next += value
+        }
+    }
+
+    /** 是不是 [kind] 的 http(s) 媒体地址。 */
+    private fun isMediaUrl(value: String, kind: MediaKind): Boolean {
+        val text = value.trim()
+        if (!text.startsWith("http://") && !text.startsWith("https://")) return false
+        return MediaKind.detect(extensionOfUrl(text), text) == kind
     }
 
     /** 取 URL 的扩展名，剥掉查询参数和片段。 */

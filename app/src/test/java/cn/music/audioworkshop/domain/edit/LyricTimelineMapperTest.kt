@@ -210,4 +210,42 @@ class LyricTimelineMapperTest {
         assertEquals(emptyList<EditTimeSegment>(), result.segments)
         assertEquals(emptyList<LyricLine>(), result.lines)
     }
+
+    @Test
+    fun speedCompressesLyricTimelineAlongsideAudio() {
+        // 2 倍速：音频 2s 压成 1s，歌词时间戳必须同步压缩，否则逐句漂移。
+        val result = LyricTimelineMapper.map(
+            lyrics = track(
+                LyricLine("甲", 0L, 1_000_000L, listOf(LyricWord("甲", 0L, 1_000_000L))),
+                LyricLine("乙", 1_000_000L, 2_000_000L, listOf(LyricWord("乙", 1_000_000L, 2_000_000L))),
+            ),
+            durationUs = 2_000_000L,
+            selections = listOf(EditTimeRange(0L, 2_000_000L)),
+            mode = EditMode.KEEP_SELECTED,
+            speed = 2f,
+        )
+
+        assertEquals(listOf(EditTimeSegment(0L, 2_000_000L, 0L, 1_000_000L)), result.segments)
+        assertEquals(
+            listOf(
+                LyricLine("甲", 0L, 500_000L, listOf(LyricWord("甲", 0L, 500_000L))),
+                LyricLine("乙", 500_000L, 1_000_000L, listOf(LyricWord("乙", 500_000L, 1_000_000L))),
+            ),
+            result.lines,
+        )
+    }
+
+    @Test
+    fun nonPositiveSpeedFallsBackToOriginalSpeed() {
+        val result = LyricTimelineMapper.map(
+            lyrics = track(LyricLine("甲", 0L, 1_000_000L, listOf(LyricWord("甲", 0L, 1_000_000L)))),
+            durationUs = 1_000_000L,
+            selections = listOf(EditTimeRange(0L, 1_000_000L)),
+            mode = EditMode.KEEP_SELECTED,
+            speed = 0f,
+        )
+
+        assertEquals(listOf(EditTimeSegment(0L, 1_000_000L, 0L, 1_000_000L)), result.segments)
+        assertEquals(1_000_000L, result.lines.single().endUs)
+    }
 }

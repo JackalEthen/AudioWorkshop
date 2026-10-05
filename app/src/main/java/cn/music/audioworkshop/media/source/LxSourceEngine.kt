@@ -134,9 +134,7 @@ class LxSourceEngine(private val client: OkHttpClient) {
                     ?: throw LxSourceInitException("脚本环境异常：缺少 __lx_native__")
                 // 脚本跑完就返回。声明能力可能还在飞行中（等网络），
                 // 由 handleInit 异步完成 future，这里不检查。
-                android.util.Log.i(TAG, "用户脚本 evaluate 返回")
                 cx.evaluate(script, "user-source.js")
-                android.util.Log.i(TAG, "用户脚本 evaluate 完毕")
 
                 // 兜底：脚本卡住不发 init 时别无限等
                 timers.schedule({
@@ -319,7 +317,6 @@ class LxSourceEngine(private val client: OkHttpClient) {
     // ---- 脚本 → 宿主 ----
 
     private fun handleScriptAction(action: String, dataJson: String?) {
-        android.util.Log.i(TAG, "收到 action=$action thread=${Thread.currentThread().name} data=${dataJson?.take(120)}")
         when (action) {
             "init" -> handleInit(dataJson)
             "response" -> handleResponse(dataJson)
@@ -356,7 +353,6 @@ class LxSourceEngine(private val client: OkHttpClient) {
         }.fold(
             onSuccess = { info ->
                 initInfo = info
-                android.util.Log.i(TAG, "握手完成，可用平台 ${info.platforms}")
                 initFuture = null
                 future?.complete(info)
             },
@@ -532,7 +528,6 @@ class LxSourceEngine(private val client: OkHttpClient) {
     private fun pushToScript(action: String, data: String) {
         val bridge = nativeBridge
         val ctx = context
-        android.util.Log.i(TAG, "pushToScript $action bridge=${bridge != null} ctx=${ctx != null}")
         if (bridge == null || ctx == null) {
             android.util.Log.w(TAG, "pushToScript $action 放弃：上下文已销毁")
             return
@@ -545,7 +540,6 @@ class LxSourceEngine(private val client: OkHttpClient) {
                 // 漏掉 key 会被 preload 直接拒掉并返回 'Invalid key'，
                 // 表现就是「响应推回去了但脚本毫无反应」。
                 runCatching { bridge.call(key, action, data) }
-                    .onSuccess { android.util.Log.i(TAG, "pushToScript($action) 返回 $it") }
                     .onFailure { android.util.Log.e(TAG, "pushToScript($action) 抛错", it) }
             }
         }.onFailure {

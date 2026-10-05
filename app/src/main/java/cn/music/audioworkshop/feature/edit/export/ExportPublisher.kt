@@ -1,7 +1,12 @@
 package cn.music.audioworkshop.feature.edit.export
 
+import cn.music.audioworkshop.domain.ExportPackageRepository
 import cn.music.audioworkshop.domain.download.DownloadTarget
 import cn.music.audioworkshop.domain.download.DownloadTargetResolver
+import cn.music.audioworkshop.domain.media.ExportJob
+import cn.music.audioworkshop.domain.media.ExportResult
+import cn.music.audioworkshop.domain.model.ExportPackage
+import cn.music.audioworkshop.domain.model.ExportValidationStatus
 import java.io.File
 import java.io.IOException
 import java.util.UUID
@@ -24,6 +29,8 @@ import kotlinx.coroutines.withContext
  */
 class ExportPublisher(
     private val targetResolver: DownloadTargetResolver,
+    /** 落库用的历史记录仓库。为 null 时不记历史（测试用）。 */
+    private val packageRepository: ExportPackageRepository? = null,
 ) {
 
     /**
@@ -35,14 +42,33 @@ class ExportPublisher(
     data class PublishedExport(val bytes: Long, val location: String)
 
     /**
+     * 发布成功后要写进历史记录的信息。
+     *
+     * 落库放在这里而不是编码侧：编码器只知道 cache 里的临时路径，而那个文件
+     * 在 publish 开头就被删了。记它等于记一个永远打不开的路径（历史记录会显示
+     * PASSED，但点「打开」和「删除」都找不到文件）。
+     */
+    data class HistoryRecord(
+        val editProjectId: String,
+        val format: String,
+        val durationMs: Long,
+    )
+
+    /**
      * 发布 [tempPath] 指向的临时文件，落到 [fileName]。
      *
      * 同名已存在会自动加序号，不覆盖用户已有的文件。
      *
+     * @param history 非空时在发布成功后写一条历史记录，[location] 作为落点。
+     *   null 表示不记历史。
      * @return 写入字节数和可长期引用的真实位置（SAF 目录是 `content://` URI，
      *   应用私有目录是绝对路径），历史记录要靠它才能打开/删除文件
      */
-    suspend fun publish(tempPath: String, fileName: String): PublishedExport = withContext(Dispatchers.IO) {
+    suspend fun publish(
+        tempPath: String,
+        fileName: String,
+        history: HistoryRecord? = null,
+    ): PublishedExport = withContext(Dispatchers.IO) {
         val source = File(tempPath)
         if (!source.isFile) throw IOException("导出临时文件不存在")
 
@@ -95,6 +121,7 @@ class ExportPublisher(
                 android.util.Log.w("qishui/publish", "publishedLocation failed, file is already written", error)
                 targetResolver.describe(final)
             }
+            recordHistory(history, location, bytes)
             PublishedExport(bytes, location)
         } catch (failure: Throwable) {
             // 关键：只清理没能成功写入目标的位置，不能删已经写好的文件
@@ -114,6 +141,32 @@ class ExportPublisher(
         }
     }
 
+    /**
+     * 记一条历史，指向 [location] 这个真实落点。
+     *
+     * 落库失败只记日志：文件已经在目标位置了，为了一条历史记录把导出判成失败
+     * 会让用户以为文件没生成，反而去重复导出。
+     */
+    private suspend fun recordHistory(history: HistoryRecord?, location: String, bytes: Long) {
+        val repository = packageRepository ?: return
+        val record = history ?: return
+        runCatching {
+            repository.upsert(
+                ExportPackage(
+                    sourceEditProjectId = record.editProjectId,
+                    outputPath = location,
+                    format = record.format,
+                    durationMs = record.durationMs,
+                    sizeBytes = bytes,
+                    createdAt = System.currentTimeMillis(),
+                    validationStatus = ExportValidationStatus.PASSED,
+                ),
+            )
+        }.onFailure {
+            android.util.Log.e("qishui/publish", "历史记录落库失败 project=${record.editProjectId} loc=$location", it)
+        }
+    }
+
     /** 同名加序号，直到目标不存在。 */
     private fun uniqueTarget(fileName: String): DownloadTarget {
         var candidate = targetResolver.finalTarget(fileName)
@@ -129,4 +182,19 @@ class ExportPublisher(
         }
         throw IOException("同名文件太多，无法生成新文件名")
     }
+}
+
+/**
+ * 从 job + 编码结果拼出历史记录信息。
+ *
+ * 编码结果不是 [ExportResult.Completed] 时返回 null —— 失败的任务不该进历史。
+ * 各功能页的 `onExportResult` 都调它，不自己拼字段。
+ */
+fun historyOf(job: ExportJob, result: ExportResult): ExportPublisher.HistoryRecord? {
+    if (result !is ExportResult.Completed) return null
+    return ExportPublisher.HistoryRecord(
+        editProjectId = job.editProjectId,
+        format = job.format.extension,
+        durationMs = result.durationMs,
+    )
 }

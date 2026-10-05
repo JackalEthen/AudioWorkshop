@@ -57,7 +57,6 @@ class MusicSourceViewModel(
         launchBusy("正在下载脚本…") {
             repository.importFromUrl(trimmed)
                 .onSuccess {
-                    android.util.Log.i(TAG, "importFromUrl 成功: ${it.name}")
                     mutableMessage.value = "已导入「${it.name}」，勾选后生效"
                 }
                 .onFailure {

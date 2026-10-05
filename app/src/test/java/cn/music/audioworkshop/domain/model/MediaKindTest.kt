@@ -74,11 +74,4 @@ class MediaKindTest {
             MediaKind.isDownloadable("m3u8", "https://live.x.com/hls/playlist"),
         )
     }
-
-    @Test
-    fun `解析页对三种类型都能预览`() {
-        MediaKind.entries.forEach { kind ->
-            assertTrue("${kind.label}应支持预览", kind.supportsPreview)
-        }
-    }
 }

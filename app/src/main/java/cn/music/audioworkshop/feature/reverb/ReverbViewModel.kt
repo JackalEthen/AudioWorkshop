@@ -35,6 +35,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import cn.music.audioworkshop.feature.edit.export.historyOf
 
 /**
  * 淡入淡出模式。
@@ -403,7 +404,7 @@ reverbMix = current.mix,
 
             is ExportResult.Completed -> viewModelScope.launch {
                 mutableState.update { it.copy(isWorking = false) }
-                runCatching { exportPublisher.publish(result.outputPath, fileName) }.fold(
+                runCatching { exportPublisher.publish(result.outputPath, fileName, historyOf(job, result)) }.fold(
                     onSuccess = { published ->
                         mutableExportState.update { reduceExport(it, ExportEvent.Succeeded(published.bytes)) }
                         mutableState.update { it.copy(publishedLocation = published.location) }
@@ -426,9 +427,6 @@ reverbMix = current.mix,
         super.onCleared()
         previewJob?.cancel()
         previewFile?.delete()
-        // 只能暂停，不能 release：audioPlayer 是 AppContainer 里的单例，
-        // 全应用共用。release 会 scope.cancel() + player.release()，
-        // 之后进任何功能页都播不出声了。
         audioPlayer.pause()
     }
 

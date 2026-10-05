@@ -56,6 +56,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import cn.music.audioworkshop.feature.edit.export.historyOf
 
 sealed interface WaveformUiState {
     data object Loading : WaveformUiState
@@ -791,7 +792,7 @@ class EditWorkspaceViewModel(
         mutableUiState.update { it.copy(message = null) }
     }
 
-    /** 勾了才删音频；不勾只清记录，编辑项目本身仍按源曲谱系保留可查。 */
+    // 删 SourceTrack 不动 edit_projects：历史记录要靠源曲谱系回溯。
     fun deleteTracks(ids: List<String>, deleteFiles: Boolean) {
         if (ids.isEmpty()) return
         viewModelScope.launch {
@@ -962,12 +963,10 @@ class EditWorkspaceViewModel(
                 mutableExportState.update { reduceExport(it, ExportEvent.Failed(result.reason)) }
 
             is ExportResult.Completed -> viewModelScope.launch {
-                // 落盘走设置里指定的下载目录，不再弹 SAF 选择框
-                val copied = runCatching { exportPublisher.publish(result.outputPath, fileName) }
-                copied.fold(
+                // 落盘走设置里指定的下载目录，不再弹 SAF 选择框。
+                // 历史记录由 publish() 用真实落点写，这里不用再管。
+                runCatching { exportPublisher.publish(result.outputPath, fileName, historyOf(job, result)) }.fold(
                     onSuccess = { published ->
-                        // 记真实的落点，不能记 fileName：历史里的打开/删除靠它定位文件
-                        recordExport(job, result, published.location)
                         mutableExportState.update { reduceExport(it, ExportEvent.Succeeded(published.bytes)) }
                     },
                     onFailure = { failure ->
@@ -979,33 +978,6 @@ class EditWorkspaceViewModel(
                 )
             }
         }
-    }
-
-    /** [location] 是发布后的真实位置（content:// URI 或绝对路径），历史记录靠它找文件。 */
-    private suspend fun recordExport(job: ExportJob, result: ExportResult.Completed, location: String) {
-        val recorded = awaitRecord(job.editProjectId, result.outputPath)
-        val pkg = recorded ?: ExportPackage(
-            sourceEditProjectId = job.editProjectId,
-            outputPath = result.outputPath,
-            format = job.format.extension,
-            durationMs = result.durationMs,
-            sizeBytes = result.sizeBytes,
-            createdAt = System.currentTimeMillis(),
-            validationStatus = ExportValidationStatus.PASSED,
-        )
-        exportPackageRepository.upsert(pkg.copy(outputPath = location))
-        if (recorded != null) {
-            exportPackageRepository.delete(job.editProjectId, result.outputPath)
-        }
-    }
-
-    private suspend fun awaitRecord(editProjectId: String, outputPath: String): ExportPackage? {
-        val packages = withTimeoutOrNull(RECORD_WAIT_MS) {
-            exportPackageRepository.observeAll().first { list ->
-                list.any { it.sourceEditProjectId == editProjectId && it.outputPath == outputPath }
-            }
-        } ?: return null
-        return packages.firstOrNull { it.sourceEditProjectId == editProjectId && it.outputPath == outputPath }
     }
 
     private fun mutate(transform: (EditWorkspaceUiState) -> EditWorkspaceUiState) {

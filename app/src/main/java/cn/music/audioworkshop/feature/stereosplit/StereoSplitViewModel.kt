@@ -32,6 +32,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
+import cn.music.audioworkshop.feature.edit.export.historyOf
 
 /** 拆出来的声道。 */
 enum class SplitSide(val label: String, val suffix: String, val channelIndex: Int) {
@@ -143,6 +144,7 @@ class StereoSplitViewModel(
             val path = current.sourcePath
             val segments = listOf(EditTimeSegment(0L, current.durationUs, 0L, current.durationUs))
             // 一个声道一个声道地渲染。渲染器是全文件单进程，跑两次而不是并发。
+            // 渲染器保证两次拿到不同路径，这里传不同名字只是为了文件名可读。
             val left = previewRenderer.render(
                 sourcePath = path,
                 segments = segments,
@@ -151,6 +153,7 @@ class StereoSplitViewModel(
                 fadeOutUs = 0L,
                 fadeCurve = FadeCurve.LINEAR,
                 extractChannel = SplitSide.LEFT.channelIndex,
+                outputName = "split-left.wav",
             ).getOrElse { return@launch failSplit(it) }
             val right = previewRenderer.render(
                 sourcePath = path,
@@ -160,6 +163,7 @@ class StereoSplitViewModel(
                 fadeOutUs = 0L,
                 fadeCurve = FadeCurve.LINEAR,
                 extractChannel = SplitSide.RIGHT.channelIndex,
+                outputName = "split-right.wav",
             ).getOrElse { return@launch failSplit(it) }
             clearPreviewFiles()
             leftPreviewFile = left
@@ -230,13 +234,14 @@ class StereoSplitViewModel(
                 val fileName = "$base${side.suffix}.${ExportFormat.MP3.extension}"
                 mutableExportState.update { reduceExport(it, ExportEvent.Started(jobId, fileName)) }
                 // 串行：EncoderClient 同时只允许一个 job，两个并发会被直接拒掉。
-                when (val result = exportAndAwait(buildExportJob(jobId, side, current))) {
+                val job = buildExportJob(jobId, side, current)
+                when (val result = exportAndAwait(job)) {
                     is ExportResult.Failed -> {
                         failure = result.reason
                         break
                     }
                     is ExportResult.Completed -> {
-                        runCatching { exportPublisher.publish(result.outputPath, fileName) }.fold(
+                        runCatching { exportPublisher.publish(result.outputPath, fileName, historyOf(job, result)) }.fold(
                             onSuccess = { published ->
                                 if (side == SplitSide.LEFT) left = published.location else right = published.location
                                 exported++
@@ -340,7 +345,6 @@ mutableExportState.update {
         super.onCleared()
         splitJob?.cancel()
         clearPreviewFiles()
-        // 只能暂停，不能 release：audioPlayer 是 AppContainer 里的单例，全应用共用
         audioPlayer.pause()
     }
 

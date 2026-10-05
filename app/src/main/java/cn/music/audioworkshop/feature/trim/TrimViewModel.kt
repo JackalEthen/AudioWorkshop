@@ -33,6 +33,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import cn.music.audioworkshop.feature.edit.export.historyOf
 
 /** 剪切模式。 */
 enum class TrimMode(val label: String, val caption: String) {
@@ -195,8 +196,8 @@ class TrimViewModel(
                 }
             }.onSuccess { full ->
                 mutableState.update { it.copy(peaks = full) }
-            }.onFailure { error ->
-                // 波形读不出来不影响剪切，只是画不出图；记日志不打扰用户
+            }.onFailure { _ ->
+                // 波形失败只影响画图，不影响剪切；静默忽略
             }
         }
     }
@@ -378,7 +379,7 @@ class TrimViewModel(
 
             is ExportResult.Completed -> viewModelScope.launch {
                 mutableState.update { it.copy(isExporting = false) }
-                runCatching { exportPublisher.publish(result.outputPath, fileName) }.fold(
+                runCatching { exportPublisher.publish(result.outputPath, fileName, historyOf(job, result)) }.fold(
                     onSuccess = { published ->
                         mutableExportState.update { reduceExport(it, ExportEvent.Succeeded(published.bytes)) }
                         mutableState.update { it.copy(publishedLocation = published.location) }
@@ -399,9 +400,6 @@ class TrimViewModel(
 
 override fun onCleared() {
         super.onCleared()
-        // 只能暂停，不能 release：audioPlayer 是 AppContainer 里的单例，
-        // 全应用共用。release 会 scope.cancel() + player.release()，
-        // 之后进任何功能页都播不出声了。
         audioPlayer.pause()
     }
 

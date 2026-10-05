@@ -30,6 +30,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import cn.music.audioworkshop.feature.edit.export.historyOf
 
 /**
  * 歌词编辑里的一行。
@@ -169,7 +170,6 @@ class LrcEditViewModel(
         audioPlayer.loadFile(file.absolutePath)
     }
 
-    /** 从文件标签里读出歌词原文（USLT / SYLT / ID3v1 歌词字段）。 */
     // ---- 源码文本 ----
 
     fun toggleSourceVisible() = mutableState.update { it.copy(isSourceVisible = !it.isSourceVisible) }
@@ -394,7 +394,7 @@ class LrcEditViewModel(
                 lyricOffsetMs = 0L,
                 format = ExportFormat.MP3,
             )
-            encoderClient.export(job) { result -> onExportResult(fileName, result) }
+            encoderClient.export(job) { result -> onExportResult(job, fileName, result) }
         }
     }
 
@@ -402,14 +402,14 @@ class LrcEditViewModel(
         mutableExportState.value.jobId?.let(encoderClient::cancel)
     }
 
-    private fun onExportResult(fileName: String, result: ExportResult) {
+    private fun onExportResult(job: ExportJob, fileName: String, result: ExportResult) {
         when (result) {
             is ExportResult.Failed ->
                 mutableExportState.update { reduceExport(it, ExportEvent.Failed(result.reason)) }
 
             is ExportResult.Completed -> viewModelScope.launch {
                 mutableState.update { it.copy(isWorking = false) }
-                runCatching { exportPublisher.publish(result.outputPath, fileName) }.fold(
+                runCatching { exportPublisher.publish(result.outputPath, fileName, historyOf(job, result)) }.fold(
                     onSuccess = { published ->
                         mutableExportState.update { reduceExport(it, ExportEvent.Succeeded(published.bytes)) }
                         mutableState.update { it.copy(publishedLocation = published.location) }
@@ -435,7 +435,6 @@ class LrcEditViewModel(
                 offsetMs = 0L,
             ),
         )
-        android.util.Log.i("QishuiLrc", "toLrc lines=${lines.size} chars=${lrc.length} head=${lrc.take(60)}")
         return lrc
     }
 
@@ -443,9 +442,6 @@ class LrcEditViewModel(
 
 override fun onCleared() {
         super.onCleared()
-        // 只能暂停，不能 release：audioPlayer 是 AppContainer 里的单例，
-        // 全应用共用。release 会 scope.cancel() + player.release()，
-        // 之后进任何功能页都播不出声了。
         audioPlayer.pause()
     }
 

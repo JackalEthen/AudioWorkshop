@@ -36,10 +36,8 @@ class MusicSourceRepository(
      */
     suspend fun importScript(script: String, origin: String, fallbackName: String): Result<MusicSource> =
         runCatching {
-            android.util.Log.i(TAG, "importScript: 长度=${script.length} origin=$origin")
             require(script.isNotBlank()) { "脚本内容为空" }
             val meta = MusicSourceMeta.parse(script, fallbackName)
-            android.util.Log.i(TAG, "importScript: 解析 name=${meta.name} v=${meta.version}")
             val id = MusicSourceMeta.stableId(meta, script)
             val entity = MusicSourceEntity(
                 id = id,
@@ -55,7 +53,6 @@ class MusicSourceRepository(
                 last_error = null,
             )
             dao.upsert(entity)
-            android.util.Log.i(TAG, "importScript: 已入库 id=$id")
             entity.toDomain()
         }.onFailure {
             android.util.Log.e(TAG, "importScript 失败: ${it.javaClass.name}: ${it.message}", it)
@@ -63,13 +60,10 @@ class MusicSourceRepository(
 
     /** 从链接导入。 */
     suspend fun importFromUrl(url: String): Result<MusicSource> = runCatching {
-        android.util.Log.i(TAG, "importFromUrl: 开始 url=$url")
         val request = Request.Builder().url(url.trim()).build()
         client.newCall(request).execute().use { response ->
-            android.util.Log.i(TAG, "importFromUrl: HTTP ${response.code} type=${response.header("Content-Type")}")
             if (!response.isSuccessful) error("下载失败：HTTP ${response.code}")
             val body = response.body?.string().orEmpty()
-            android.util.Log.i(TAG, "importFromUrl: 正文 ${body.length} 字节")
             importScript(
                 script = body,
                 origin = MusicSource.ORIGIN_URL,

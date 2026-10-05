@@ -79,19 +79,10 @@ val samples: ShortArray,
     }
 
     /**
-     * 把两个文件合成一个立体声 WAV：左文件进左声道，右文件进右声道。
+     * 测一下素材当前的整体响度，给 UI 显示「现在多少 LUFS」。
      *
-     * 每个输入都只取第 0 路 —— 输入是立体声就取左声道，是单声道就用原样。
-     * 两路时长不同取较长的，短的那路补静音（[PcmEffects.stereoCompose] 的行为）。
-     *
-     * 导出也复用这个产物：先合成立体声 WAV，再拿它当唯一 source 走导出流程。
-     * 引擎的多 source 是**混音**不是左右分配，指望它拼立体声会得到一个单声道。
+     * 走 native 链路，所以只能在真机上跑 —— JVM 单元测试里是 null。
      */
-/**
- * 测一下素材当前的整体响度，给 UI 显示「现在多少 LUFS」。
- *
- * 走 native 链路，所以只能在真机上跑 —— JVM 单元测试里是 null。
- */
     suspend fun measureLufs(sourcePath: String): Float? = withContext(Dispatchers.IO) {
         runCatching {
             val file = File(sourcePath)
@@ -101,6 +92,15 @@ val samples: ShortArray,
         }.getOrNull()
     }
 
+    /**
+     * 把两个文件合成一个立体声 WAV：左文件进左声道，右文件进右声道。
+     *
+     * 每个输入都只取第 0 路 —— 输入是立体声就取左声道，是单声道就用原样。
+     * 两路时长不同取较长的，短的那路补静音（[PcmEffects.stereoCompose] 的行为）。
+     *
+     * 导出也复用这个产物：先合成立体声 WAV，再拿它当唯一 source 走导出流程。
+     * 引擎的多 source 是**混音**不是左右分配，指望它拼立体声会得到一个单声道。
+     */
     suspend fun renderStereoPair(leftPath: String, rightPath: String): Result<File> =
         withContext(Dispatchers.IO) {
             runCatching {
@@ -116,13 +116,19 @@ val samples: ShortArray,
                     PcmEffects.extractChannel(right, 0),
                 )
 
-                val directory = File(context.cacheDir, "edit-preview").apply { mkdirs() }
-                directory.listFiles()?.forEach { it.delete() }
-                val target = File(directory, "stereo-pair.wav")
+                val target = previewTarget("stereo-pair.wav")
                 composed.writeWav(target)
                 target
             }
         }
+
+    // 每次给一个新名字：同名覆盖会让还在播放的旧文件被删掉，
+    // 播放器的 fd 立刻失效（表现为「调完参数就没声了」）。
+    // 旧产物由调用方在 loadFile 之后自己删。
+    private fun previewTarget(name: String): File {
+        val directory = File(context.cacheDir, "edit-preview").apply { mkdirs() }
+        return File(directory, "${System.nanoTime()}-$name")
+    }
 
     suspend fun render(
         sourcePath: String,
@@ -157,15 +163,15 @@ preventClipping: Boolean = false,
         orbitDegrees: Float = 0f,
         /** 目标响度（LUFS）。null = 不做响度标准化。 */
         targetLufs: Float? = null,
+        /** 产物文件名。同一个渲染器连续出多个产物时必须给不同的名字，否则互相覆盖。 */
+        outputName: String = "preview.wav",
     ): Result<File> = withContext(Dispatchers.IO) {
         runCatching {
             val source = File(sourcePath)
             require(source.isFile) { "源文件不存在: $sourcePath" }
             require(segments.isNotEmpty()) { "当前参数没有产生任何区间" }
 
-            val directory = File(context.cacheDir, "edit-preview").apply { mkdirs() }
-            directory.listFiles()?.forEach { it.delete() }
-            val target = File(directory, "preview.wav")
+            val target = previewTarget(outputName)
 
             val format = pcmChunkReader.probeFormat(source)
             var writer = PcmStreamWriter(target, format.sampleRateHz, format.channels)
@@ -213,13 +219,9 @@ preventClipping: Boolean = false,
                         channels = decoded.channels,
                         samples = joinShortArrays(collected),
                     )
-                    // 先降噪再均衡，和 ExportEngine 一致：反过来会把噪声一起放大
-                    if (targetLufs != null) {
-                        buffer = PcmEffects.normalizeLoudness(buffer, targetLufs)
-                    }
-                    if (orbitHalfCircleSec != null) {
-                        buffer = PcmEffects.stereoOrbit(buffer, orbitHalfCircleSec, orbitDegrees)
-                    }
+                    // 顺序与 ExportEngine.applyEffects 逐项对齐：声道提取 → 修复 → 降噪 → 均衡
+                    // → 混响 → 回声 → 合唱 → 响度标准化 → 环绕。变速最后跑。
+                    // 改这里必须同步改那边，否则预览和导出的成品不是一回事。
                     if (extractChannel != null) {
                         buffer = PcmEffects.extractChannel(buffer, extractChannel)
                     }
@@ -247,7 +249,6 @@ preventClipping: Boolean = false,
                     if (eqGainsDb.any { kotlin.math.abs(it) > 0.01f }) {
                         buffer = PcmEffects.equalizer(buffer, eqGainsDb.toFloatArray())
                     }
-                    // 混响放最后：它是干湿混合，前面处理过的信号才是它的输入
                     if (reverbMix > 0.001f) {
                         buffer = PcmEffects.reverb(
                             buffer = buffer,
@@ -258,7 +259,6 @@ preventClipping: Boolean = false,
                             damping = reverbDamping,
                         )
                     }
-                    // 回声、合唱排在混响之后：先把空间底子铺好，回声再在里面反射
                     echoPreset?.let { preset ->
                         buffer = PcmEffects.echo(
                             buffer = buffer,
@@ -275,6 +275,13 @@ preventClipping: Boolean = false,
                             mix = preset.mix,
                             kind = preset.kind,
                         )
+                    }
+                    // 响度标准化绝对最后：前面所有效果都会改变整体响度。
+                    if (targetLufs != null) {
+                        buffer = PcmEffects.normalizeLoudness(buffer, targetLufs)
+                    }
+                    if (orbitHalfCircleSec != null) {
+                        buffer = PcmEffects.stereoOrbit(buffer, orbitHalfCircleSec, orbitDegrees)
                     }
                     // 效果可能改采样率（降噪内部走 48k），写出器要跟着新建
                     if (buffer.sampleRateHz != format.sampleRateHz || buffer.channels != format.channels) {
@@ -306,9 +313,7 @@ preventClipping: Boolean = false,
     ): Result<File> = withContext(Dispatchers.IO) {
         runCatching {
             require(plan.steps.isNotEmpty()) { "当前参数没有产生任何区间" }
-            val directory = File(context.cacheDir, "edit-preview").apply { mkdirs() }
-            directory.listFiles()?.forEach { it.delete() }
-            val target = File(directory, "preview.wav")
+            val target = previewTarget("preview.wav")
 
             val first = File(plan.steps.first().source.localPath)
             require(first.isFile) { "源文件不存在: ${first.name}" }
@@ -347,12 +352,3 @@ preventClipping: Boolean = false,
         }
     }
 }
-
-
-
-
-
-
-
-
-

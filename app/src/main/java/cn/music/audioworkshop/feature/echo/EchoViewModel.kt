@@ -32,6 +32,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import cn.music.audioworkshop.feature.edit.export.historyOf
 
 /**
  * 回声效果：三个类型，不给参数。
@@ -256,7 +257,7 @@ class EchoViewModel(
                 echoPreset = preset,
                 format = ExportFormat.MP3,
             )
-            encoderClient.export(job) { result -> onExportResult(fileName, result) }
+            encoderClient.export(job) { result -> onExportResult(job, fileName, result) }
         }
     }
 
@@ -264,14 +265,14 @@ class EchoViewModel(
         mutableExportState.value.jobId?.let(encoderClient::cancel)
     }
 
-    private fun onExportResult(fileName: String, result: ExportResult) {
+    private fun onExportResult(job: ExportJob, fileName: String, result: ExportResult) {
         when (result) {
             is ExportResult.Failed ->
                 mutableExportState.update { reduceExport(it, ExportEvent.Failed(result.reason)) }
 
             is ExportResult.Completed -> viewModelScope.launch {
                 mutableState.update { it.copy(isWorking = false) }
-                runCatching { exportPublisher.publish(result.outputPath, fileName) }.fold(
+                runCatching { exportPublisher.publish(result.outputPath, fileName, historyOf(job, result)) }.fold(
                     onSuccess = { published ->
                         mutableExportState.update { reduceExport(it, ExportEvent.Succeeded(published.bytes)) }
                         mutableState.update { it.copy(publishedLocation = published.location) }
@@ -293,9 +294,6 @@ class EchoViewModel(
         super.onCleared()
         previewJob?.cancel()
         previewFile?.delete()
-        // 只能暂停，不能 release：audioPlayer 是 AppContainer 里的单例，
-        // 全应用共用。release 会 scope.cancel() + player.release()，
-        // 之后进任何功能页都播不出声了。
         audioPlayer.pause()
     }
 

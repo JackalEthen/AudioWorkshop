@@ -85,18 +85,35 @@ class ResolveViewModel(
         }
     }
 
+    /**
+     * 把解析结果的媒体加入下载中心。
+     *
+     * 图文源一次返回多张图，逐个入队，单个失败不影响其余 ——
+     * 用户要的是「一次全下」，不是「第一个失败就停」。
+     */
     fun enqueueDownload() {
         val current = _uiState.value as? ResolveUiState.Success ?: return
         if (current.isEnqueueing) return
+        val urls = current.track.mediaUrls.ifEmpty { listOfNotNull(current.track.audioUrl) }
+        if (urls.isEmpty()) return
         _uiState.value = current.copy(isEnqueueing = true, message = null)
         viewModelScope.launch {
-            val result = downloadRepository.enqueue(current.track)
+            var succeeded = 0
+            var lastError: String? = null
+            for (url in urls) {
+                val result = downloadRepository.enqueue(current.track.copy(audioUrl = url))
+                result.fold(
+                    onSuccess = { succeeded++ },
+                    onFailure = { lastError = it.message },
+                )
+            }
             _uiState.value = current.copy(
                 isEnqueueing = false,
-                message = result.fold(
-                    onSuccess = { "已加入下载中心" },
-                    onFailure = { "加入下载失败：${it.message ?: "未知错误"}" },
-                ),
+                message = when {
+                    succeeded == 0 -> "加入下载失败：${lastError ?: "未知错误"}"
+                    succeeded < urls.size -> "已加入 $succeeded/${urls.size} 个，其余失败：${lastError ?: "未知错误"}"
+                    else -> "已加入下载中心（$succeeded 个）"
+                },
             )
         }
     }

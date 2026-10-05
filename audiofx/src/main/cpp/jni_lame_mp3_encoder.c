@@ -21,7 +21,7 @@ static lame_global_flags *qs_flags(jlong handle)
     return (lame_global_flags *) (intptr_t) handle;
 }
 
-JNIEXPORT jlong JNICALL Java_cn_qishui_tool_media_export_LameNativeBridge_nativeInit(
+JNIEXPORT jlong JNICALL Java_cn_music_audioworkshop_media_export_LameNativeBridge_nativeInit(
         JNIEnv *env, jobject bridge, jint sample_rate, jint channels, jint bitrate_kbps)
 {
     lame_global_flags *flags = lame_init();
@@ -76,7 +76,7 @@ __android_log_print(ANDROID_LOG_INFO, QS_TAG,
     return (jlong) (intptr_t) flags;
 }
 
-JNIEXPORT jint JNICALL Java_cn_qishui_tool_media_export_LameNativeBridge_nativeEncode(
+JNIEXPORT jint JNICALL Java_cn_music_audioworkshop_media_export_LameNativeBridge_nativeEncode(
         JNIEnv *env, jobject bridge, jlong handle, jshortArray pcm, jint samples_per_channel, jbyteArray out)
 {
     lame_global_flags *flags = qs_flags(handle);
@@ -111,7 +111,7 @@ JNIEXPORT jint JNICALL Java_cn_qishui_tool_media_export_LameNativeBridge_nativeE
     return (jint) written;
 }
 
-JNIEXPORT jint JNICALL Java_cn_qishui_tool_media_export_LameNativeBridge_nativeFlush(
+JNIEXPORT jint JNICALL Java_cn_music_audioworkshop_media_export_LameNativeBridge_nativeFlush(
         JNIEnv *env, jobject bridge, jlong handle, jbyteArray out)
 {
     lame_global_flags *flags = qs_flags(handle);
@@ -131,7 +131,7 @@ JNIEXPORT jint JNICALL Java_cn_qishui_tool_media_export_LameNativeBridge_nativeF
     return (jint) written;
 }
 
-JNIEXPORT void JNICALL Java_cn_qishui_tool_media_export_LameNativeBridge_nativeClose(
+JNIEXPORT void JNICALL Java_cn_music_audioworkshop_media_export_LameNativeBridge_nativeClose(
         JNIEnv *env, jobject bridge, jlong handle)
 {
     lame_global_flags *flags = qs_flags(handle);

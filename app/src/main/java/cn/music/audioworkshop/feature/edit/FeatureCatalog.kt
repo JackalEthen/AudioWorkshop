@@ -39,16 +39,9 @@ val FeatureCatalog: List<FeatureEntry> = listOf(
     entry("speed_pitch", "变速变调", FeatureGroup.CUT, R.drawable.ic_gauge, tool = "speed_pitch"),
     entry("fade", "淡入淡出", FeatureGroup.CUT, R.drawable.ic_audio_lines, tool = "fade"),
     entry("gain", "修改音量", FeatureGroup.CUT, R.drawable.ic_volume_2, tool = "volume"),
-    
-
-    // 常规功能
-
-
     entry("lrc", "Lrc歌词编辑", FeatureGroup.CUT, R.drawable.ic_captions, tool = "lrc"),
     entry("metadata", "修改音乐信息", FeatureGroup.CUT, R.drawable.ic_type, tool = "metadata"),
     entry("loudness", "响度标准化", FeatureGroup.EFFECT, R.drawable.ic_gauge, tool = "loudness"),
-
-    // 音效处理
     entry("equalizer", "均衡器", FeatureGroup.EFFECT, R.drawable.ic_equal_approximately, tool = "equalizer"),
     entry("stereo_orbit", "立体声环绕", FeatureGroup.EFFECT, R.drawable.ic_speaker, tool = "stereo_orbit"),
     entry("stereo_split", "立体声分离", FeatureGroup.EFFECT, R.drawable.ic_mic_vocal, tool = "stereo_split"),
@@ -58,14 +51,7 @@ val FeatureCatalog: List<FeatureEntry> = listOf(
     entry("echo", "回声效果", FeatureGroup.EFFECT, R.drawable.ic_radio, tool = "echo"),
     entry("choir", "合唱效果", FeatureGroup.EFFECT, R.drawable.ic_users, tool = "choir"),
     entry("reverb", "混响", FeatureGroup.EFFECT, R.drawable.ic_sparkles, tool = "reverb"),
-
-    // 视频处理
     entry("video_audio", "视频提取音频", FeatureGroup.VIDEO, R.drawable.ic_film, tool = "video_audio"),
-
-
-
-
-
 )
 
 private fun entry(

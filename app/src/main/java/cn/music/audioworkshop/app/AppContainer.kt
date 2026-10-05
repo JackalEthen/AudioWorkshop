@@ -188,7 +188,7 @@ class AppContainer(context: Context) {
     }
 
 
-    val encoderClient by lazy { EncoderClient(applicationContext, exportPackageRepository) }
+    val encoderClient by lazy { EncoderClient(applicationContext) }
     val pcmChunkReader by lazy { PcmChunkReader(applicationContext) }
     val editPreviewRenderer by lazy { EditPreviewRenderer(applicationContext, pcmChunkReader) }
     val waveformExtractor: WaveformSource by lazy {
@@ -205,7 +205,7 @@ class AppContainer(context: Context) {
      * 保留 [exportTargetWriter] 是因为「修改音乐信息」那条路要写回原文件，
      * 它拿到的是内容 Uri，不是下载目录。
      */
-    val exportPublisher by lazy { ExportPublisher(downloadTargetResolver) }
+    val exportPublisher by lazy { ExportPublisher(downloadTargetResolver, exportPackageRepository) }
 val exportTargetWriter by lazy { ExportTargetWriter(applicationContext) }
 
     init {
@@ -216,9 +216,3 @@ val exportTargetWriter by lazy { ExportTargetWriter(applicationContext) }
         }
     }
 }
-
-
-
-
-
-

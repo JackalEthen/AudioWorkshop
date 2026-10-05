@@ -1,0 +1,43 @@
+音频工坊 · AudioWorkshop
+Copyright 2026 JackalEthen
+
+This product includes software developed as part of the AudioWorkshop project.
+
+Licensed under the Apache License, Version 2.0 (see LICENSE).
+
+---
+
+This product bundles third-party source code under third_party/, compiled into
+the Android application. Each retains its own license:
+
+  third_party/lame                  LAME MP3 encoder        LGPL-2.0
+  third_party/rnnoise               RNNoise denoiser       BSD-3-Clause
+  third_party/signalsmith-stretch   Signalsmith Stretch    MIT
+  third_party/signalsmith-linear    Signalsmith DSP        MIT
+  third_party/signalsmith-dsp       Signalsmith DSP        MIT
+  third_party/libebur128            libebur128             BSD-2-Clause
+
+LAME is licensed under LGPL-2.0 and is used as a dynamically linked shared
+library (libmp3lame_jni.so), which satisfies the LGPL requirement that users be
+able to replace that library.
+
+This product also makes use of, but does not redistribute, the following
+projects. The project does not bundle any music, audio, or video content.
+
+  wang.harlon.quickjs:wrapper-android   QuickJS bindings   license unverified
+
+---
+
+Portions of this project were implemented with reference to the following
+open-source projects. See THIRD_PARTY_NOTICES.md for the item-by-item mapping
+and the scope of what was borrowed.
+
+  https://github.com/lx-music/lx-music-mobile     Apache-2.0
+  https://github.com/lx-music/lx-music-desktop    Apache-2.0
+  https://github.com/lecoix/mica-music            Apache-2.0
+  https://github.com/jitwxs/163MusicLyrics        Apache-2.0
+  https://github.com/amll-dev/amll-ttml-db        CC0-1.0
+  https://github.com/PaulBatchelor/Soundpipe      MIT
+
+  https://github.com/guohuiyuan/music-lib         AGPL-3.0
+    Consulted for reading only, to confirm protocol facts. No code was copied.

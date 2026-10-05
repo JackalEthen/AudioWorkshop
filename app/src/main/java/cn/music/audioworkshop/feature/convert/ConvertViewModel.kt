@@ -26,6 +26,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import cn.music.audioworkshop.feature.edit.export.historyOf
 
 /** 声道选项：0 不变 / 1 单声道 / 2 立体声 */
 enum class ChannelOption(val label: String, val value: Int) {
@@ -219,7 +220,7 @@ class ConvertViewModel(
 
             is ExportResult.Completed -> viewModelScope.launch {
                 mutableState.update { it.copy(isExporting = false) }
-                runCatching { exportPublisher.publish(result.outputPath, fileName) }.fold(
+                runCatching { exportPublisher.publish(result.outputPath, fileName, historyOf(job, result)) }.fold(
                     onSuccess = { published ->
                         mutableExportState.update { reduceExport(it, ExportEvent.Succeeded(published.bytes)) }
                         // 提示要带上真实落点，否则用户不知道文件去哪了

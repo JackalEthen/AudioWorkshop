@@ -29,6 +29,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
+import cn.music.audioworkshop.feature.edit.export.historyOf
 
 /** 合成需要的两路输入。 */
 enum class ComposeSide(val label: String) {
@@ -270,7 +271,7 @@ class StereoComposeViewModel(
                 is ExportResult.Failed ->
                     mutableExportState.update { reduceExport(it, ExportEvent.Failed(result.reason)) }
                 is ExportResult.Completed -> {
-                    runCatching { exportPublisher.publish(result.outputPath, fileName) }.fold(
+                    runCatching { exportPublisher.publish(result.outputPath, fileName, historyOf(job, result)) }.fold(
                         onSuccess = { published ->
                             mutableState.update { it.copy(isWorking = false) }
                             mutableExportState.update {
@@ -306,7 +307,6 @@ class StereoComposeViewModel(
         composeJob?.cancel()
         composedPreviewFile?.delete()
         composedPreviewFile = null
-        // 只能暂停，不能 release：audioPlayer 是 AppContainer 里的单例，全应用共用
         audioPlayer.pause()
     }
 

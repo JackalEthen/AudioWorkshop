@@ -168,9 +168,9 @@ Row(
                             ParsingIndicator()
                             Spacer(modifier = Modifier.width(14.dp))
                             Column {
-                                Text("正在解析歌曲", style = MaterialTheme.typography.titleMedium)
+                                Text("正在获取音视频信息", style = MaterialTheme.typography.titleMedium)
                                 Text(
-                                    text = "获取音频信息与逐字歌词…",
+                                    text = "获取媒体地址与逐字歌词…",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
@@ -310,13 +310,16 @@ private fun TrackResultCard(
                     enabled = canPreview,
                     modifier = Modifier.weight(1f),
                 )
-PrimaryButton(
-                    text = if (isEnqueueing) "处理中" else "加入播放列表",
+                PrimaryButton(
+                    text = when {
+                        isEnqueueing -> "处理中"
+                        else -> "下载${track.mediaKind.label}"
+                    },
                     onClick = onDownload,
-                    // 视频和图片也允许下载，所以不再要求 audioUrl 之外的条件。
+                    // 图片一次可能有多个地址，其余类型只有一个。
                     // 流媒体（m3u8/mpd）下载下来不能离线播放，这里挡掉。
-                    enabled = track.audioUrl != null &&
-                        MediaKind.isDownloadable(track.format, track.audioUrl) &&
+                    enabled = track.mediaUrls.isNotEmpty() &&
+                        track.mediaUrls.all { MediaKind.isDownloadable(track.format, it) } &&
                         !isEnqueueing,
                     modifier = Modifier.weight(1.3f),
                 )
@@ -324,7 +327,15 @@ PrimaryButton(
 
             // 视频和图片在这里预览；音频继续用下面的播放进度条
             if (track.mediaKind != MediaKind.AUDIO && track.audioUrl != null) {
-                SectionHeader(title = "${track.mediaKind.label}预览")
+                // 多图时说明一次会下几张，免得以为只下预览的那一张。
+                val count = track.mediaUrls.size
+                SectionHeader(
+                    title = if (track.mediaKind == MediaKind.IMAGE && count > 1) {
+                        "图片预览（共 $count 张，点击下载全部）"
+                    } else {
+                        "${track.mediaKind.label}预览"
+                    },
+                )
                 MediaPreview(
                     kind = track.mediaKind,
                     url = track.audioUrl,

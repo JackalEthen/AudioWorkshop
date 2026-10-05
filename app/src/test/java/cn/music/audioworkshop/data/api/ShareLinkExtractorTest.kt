@@ -50,7 +50,9 @@ class ShareLinkExtractorTest {
 
     @Test
     fun rejectsLocalAndPrivateAddresses() {
-        // 解析接口是用户配置的，但不能让它去请求内网（SSRF）
+        // 只挡「把 localhost 当分享链接粘进来」这种手滑。
+        // 这不是 SSRF 防护：这个 URL 从不被本 App 请求，只作为 query 参数
+        // 发给用户配置的远端解析接口。
         val blocked = listOf(
             "https://localhost/api/parse",
             "https://127.0.0.1:8080/parse",

@@ -35,6 +35,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import cn.music.audioworkshop.feature.edit.export.historyOf
 
 data class SpeedPitchUiState(
     val track: SourceTrack? = null,
@@ -225,19 +226,8 @@ class SpeedPitchViewModel(
      */
     fun renderPreview(playWhenReady: Boolean) {
         val current = mutableState.value
-        val track = current.track ?: run {
-            android.util.Log.i("QishuiSpeedPitch", "renderPreview 提前返回：没有导入音频")
-            return
-        }
-        val path = track.localPath ?: run {
-            android.util.Log.i("QishuiSpeedPitch", "renderPreview 提前返回：没有本地路径")
-            return
-        }
-        android.util.Log.i(
-            "QishuiSpeedPitch",
-            "renderPreview 进入 playWhenReady=$playWhenReady speed=${current.speed} semitones=${current.semitones} " +
-                "durationUs=${current.durationUs}",
-        )
+        val track = current.track ?: return
+        val path = track.localPath ?: return
         previewJob?.cancel()
         // 立刻标记「正在渲染」并把播放头归零：
         // 界面据此禁用播放键，避免用户对着旧预览以为增益没生效。
@@ -357,7 +347,7 @@ class SpeedPitchViewModel(
 
             is ExportResult.Completed -> viewModelScope.launch {
                 mutableState.update { it.copy(isWorking = false) }
-                runCatching { exportPublisher.publish(result.outputPath, fileName) }.fold(
+                runCatching { exportPublisher.publish(result.outputPath, fileName, historyOf(job, result)) }.fold(
                     onSuccess = { published ->
                         mutableExportState.update { reduceExport(it, ExportEvent.Succeeded(published.bytes)) }
                         mutableState.update { it.copy(publishedLocation = published.location) }
@@ -380,9 +370,6 @@ class SpeedPitchViewModel(
         super.onCleared()
         previewJob?.cancel()
         previewFile?.delete()
-        // 只能暂停，不能 release：audioPlayer 是 AppContainer 里的单例，
-        // 全应用共用。release 会 scope.cancel() + player.release()，
-        // 之后进任何功能页都播不出声了。
         audioPlayer.pause()
     }
 

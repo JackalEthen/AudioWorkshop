@@ -2,7 +2,6 @@
 .gradle/
 local.properties
 .idea/
-.DS_Store
 build/
 captures/
 .externalNativeBuild/
@@ -12,6 +11,9 @@ captures/
 # 图标设计源文件（2048x2048）。应用实际用的是 res/mipmap-* 里裁好的 PNG。
 /icon.png
 
-# 本地参考资料
+# 第三方源码里自带的 macOS 产物（third_party/ 下也有不少）
+**/.DS_Store
+
+# 本地参考资料：lx 音源协议的接入过程记录，486 行踩坑笔记。
+# 内容对维护者有用，但它描述的是接入过程而非当前代码的事实，放本地不入库。
 Lx_SOURCE_INTEGRATION.md
-THIRD_PARTY_NOTICES.md

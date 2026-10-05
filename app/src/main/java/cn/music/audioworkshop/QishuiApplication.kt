@@ -18,7 +18,9 @@ class QishuiApplication : Application(), ImageLoaderFactory {
         super.onCreate()
         if (!ProcessIdentity.isMainProcess(this)) return
         CacheCategory.initPlayerCoverCache(this)
-        SourceLog.init(this)
+        // 日志里有歌名、localPath 和播放直链，release 不落盘（allowBackup 会把它带出去）。
+        // 只走 logcat，排障信息不丢。
+        if (BuildConfig.DEBUG) SourceLog.init(this) else SourceLog.disableFileLog(this)
         container = AppContainer(this)
         container.encoderClient.bind()
     }

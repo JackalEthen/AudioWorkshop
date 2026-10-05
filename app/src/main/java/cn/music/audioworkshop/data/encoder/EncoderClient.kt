@@ -10,15 +10,12 @@ import android.os.IBinder
 import android.os.Looper
 import android.os.Message
 import android.os.Messenger
-import cn.music.audioworkshop.domain.ExportPackageRepository
 import cn.music.audioworkshop.domain.media.ExportJob
 import cn.music.audioworkshop.domain.media.ExportJobCodec
 import cn.music.audioworkshop.domain.media.ExportPaths
 import cn.music.audioworkshop.domain.media.ExportProgress
 import cn.music.audioworkshop.domain.media.ExportResult
 import cn.music.audioworkshop.domain.media.ExportStage
-import cn.music.audioworkshop.domain.model.ExportPackage
-import cn.music.audioworkshop.domain.model.ExportValidationStatus
 import cn.music.audioworkshop.service.EncoderProtocol
 import cn.music.audioworkshop.service.EncoderService
 import java.io.File
@@ -40,7 +37,6 @@ sealed interface EncoderState {
 
 class EncoderClient(
     private val context: Context,
-    private val exportPackageRepository: ExportPackageRepository,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val mutableState = MutableStateFlow<EncoderState>(EncoderState.Idle)
@@ -54,24 +50,24 @@ class EncoderClient(
     private val connection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
             serviceMessenger = Messenger(binder)
-            android.util.Log.i("QishuiDiag", "service CONNECTED name=$name")
+            android.util.Log.i("QishuiEncoder", "bind OK $name")
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
             serviceMessenger = null
-            android.util.Log.i("QishuiDiag", "service DISCONNECTED name=$name")
+            android.util.Log.i("QishuiEncoder", "bind DISCONNECTED $name")
             failActiveJob("编码进程已退出，可重试", retryable = true)
         }
 
         override fun onBindingDied(name: ComponentName?) {
             serviceMessenger = null
-            android.util.Log.i("QishuiDiag", "service BINDING_DIED name=$name")
+            android.util.Log.i("QishuiEncoder", "bind DIED $name")
             failActiveJob("编码服务绑定失效，可重试", retryable = true)
         }
 
         override fun onNullBinding(name: ComponentName?) {
             serviceMessenger = null
-            android.util.Log.i("QishuiDiag", "service NULL_BINDING name=$name")
+            android.util.Log.i("QishuiEncoder", "bind NULL $name")
             failActiveJob("编码服务不可用，可重试", retryable = true)
         }
     }
@@ -114,10 +110,7 @@ class EncoderClient(
         }
         val messenger = serviceMessenger
         if (messenger == null) {
-            android.util.Log.i(
-                "QishuiDiag",
-                "export REJECTED job=${job.jobId} reason=not_bound bound=$bound",
-            )
+            android.util.Log.e("QishuiEncoder", "export 拒绝：serviceMessenger=null bound=$bound")
             onResult(
                 ExportResult.Failed(
                     jobId = job.jobId,
@@ -135,20 +128,26 @@ class EncoderClient(
             jobId = job.jobId,
             progress = ExportProgress(jobId = job.jobId, stage = ExportStage.PREPARING, fraction = 0f),
         )
-        // ponytail: 只跨进程传文件路径，任务 JSON 落盘，避免 Binder 事务超限
+        // ponytail: 只跨进程传文件路径，任务 JSON落盘，避免 Binder 事务超限
         scope.launch {
-            val file = withContext(Dispatchers.IO) { runCatching { writeJobFile(job) } }
-                .getOrElse {
-                    failActiveJob("无法写入导出任务: ${it.message}", retryable = true)
-                    return@launch
+            // 编码器直接往 outputTempPath 的 .part 写，父目录不存在就是 ENOENT。
+            // 各功能页的 exportTempDirectory 只是路径声明，不会建目录，所以在这里统一建。
+            val prepared = withContext(Dispatchers.IO) {
+                runCatching {
+                    File(job.outputTempPath).parentFile?.takeIf { !it.exists() }?.mkdirs()
+                    writeJobFile(job)
                 }
-            activeJobFile = file
+            }.getOrElse {
+                failActiveJob("无法写入导出任务: ${it.message}", retryable = true)
+                return@launch
+            }
+            activeJobFile = prepared
             runCatching {
                 messenger.send(
                     Message.obtain(null, EncoderProtocol.MSG_EXPORT).apply {
                         data = Bundle().apply {
                             putString(EncoderProtocol.KEY_JOB_ID, job.jobId)
-                            putString(EncoderProtocol.KEY_JOB_PATH, file.absolutePath)
+                            putString(EncoderProtocol.KEY_JOB_PATH, prepared.absolutePath)
                         }
                         replyTo = replyMessenger
                     },
@@ -187,21 +186,24 @@ class EncoderClient(
     }
 
     private fun finish(result: ExportResult) {
-        val job = activeJob ?: return
+        val job = activeJob ?: run {
+            android.util.Log.e("QishuiEncoder", "finish 时 activeJob 已空，丢弃结果 $result")
+            return
+        }
+        android.util.Log.i("QishuiEncoder", "导出结束 job=${job.jobId} $result")
         val listener = resultListener
         activeJob = null
         resultListener = null
         activeJobFile?.delete()
         activeJobFile = null
-        val outcome = if (result is ExportResult.Completed) {
-            record(job, result)
-            result
-        } else {
+        // 编码成功不落库：此刻 outputPath 指向的 cache 临时文件马上会被
+        // ExportPublisher 删掉，记它等于记一个永远打不开的路径。
+        // 历史记录由 ExportPublisher 在发布成功后用真实落点写。
+        if (result !is ExportResult.Completed) {
             ExportPaths.partOf(job.outputTempPath).delete()
-            result
         }
-        mutableState.value = EncoderState.Finished(outcome)
-        runCatching { listener?.invoke(outcome) }
+        mutableState.value = EncoderState.Finished(result)
+        runCatching { listener?.invoke(result) }
     }
 
     private fun failActiveJob(reason: String, retryable: Boolean) {
@@ -217,24 +219,6 @@ class EncoderClient(
         )
     }
 
-    private fun record(job: ExportJob, result: ExportResult.Completed) {
-        scope.launch {
-            runCatching {
-                exportPackageRepository.upsert(
-                    ExportPackage(
-                        sourceEditProjectId = job.editProjectId,
-                        outputPath = result.outputPath,
-                        format = MP3_FORMAT,
-                        durationMs = result.durationMs,
-                        sizeBytes = result.sizeBytes,
-                        createdAt = System.currentTimeMillis(),
-                        validationStatus = ExportValidationStatus.PASSED,
-                    ),
-                )
-            }
-        }
-    }
-
     private fun writeJobFile(job: ExportJob): File {
         val directory = File(context.cacheDir, "export-jobs")
         if (!directory.exists()) directory.mkdirs()
@@ -243,7 +227,6 @@ class EncoderClient(
     }
 
     private companion object {
-        const val MP3_FORMAT = "mp3"
         const val CODE_DUPLICATE = "DUPLICATE"
         const val CODE_NOT_BOUND = "NOT_BOUND"
         const val CODE_DISCONNECTED = "DISCONNECTED"

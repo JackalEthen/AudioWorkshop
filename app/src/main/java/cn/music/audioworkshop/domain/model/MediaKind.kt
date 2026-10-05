@@ -13,10 +13,6 @@ enum class MediaKind(val label: String) {
     IMAGE("图片"),
     ;
 
-    /** 该类型能否在解析页内联预览。音频走播放器，视频和图片各有专用控件。 */
-    val supportsPreview: Boolean
-        get() = true
-
     companion object {
         /**
          * 按扩展名判定媒体类型。

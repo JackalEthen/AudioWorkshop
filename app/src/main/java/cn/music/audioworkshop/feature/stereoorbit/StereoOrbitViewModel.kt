@@ -28,6 +28,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import cn.music.audioworkshop.feature.edit.export.historyOf
 
 private const val DEFAULT_HALF_CIRCLE_SEC = 8f
 private const val DEFAULT_DEGREES = 45f
@@ -227,7 +228,7 @@ class StereoOrbitViewModel(
                     is ExportResult.Failed ->
                         mutableExportState.update { reduceExport(it, ExportEvent.Failed(result.reason)) }
                     is ExportResult.Completed -> viewModelScope.launch {
-                        runCatching { exportPublisher.publish(result.outputPath, fileName) }.fold(
+                        runCatching { exportPublisher.publish(result.outputPath, fileName, historyOf(job, result)) }.fold(
                             onSuccess = { published ->
                                 mutableState.update { it.copy(isWorking = false) }
                                 mutableExportState.update {
@@ -255,7 +256,6 @@ class StereoOrbitViewModel(
     override fun onCleared() {
         super.onCleared()
         previewJob?.cancel()
-        // 只能暂停，不能 release：audioPlayer 是 AppContainer 里的单例，全应用共用
         audioPlayer.pause()
     }
 

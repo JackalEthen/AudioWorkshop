@@ -231,7 +231,7 @@ if (!prepared.format.supportsTags) {
         return out
     }
 
-    /** 这一步是否要走整段效果处理。挂在 step 上但只看 job 参数，几个功能共用同一个出口。 */
+    // 只看 job 参数：同一判定被 render 和 applyEffects 两侧复用。
 private fun ExportSourceStep.needsAudioEffects(job: ExportJob): Boolean =
     job.extractChannel != null ||
         job.orbitHalfCircleSec != null ||
@@ -554,6 +554,7 @@ return durationMs
                 selections = step.segments.map { EditTimeRange(it.sourceStartUs, it.sourceEndUs) },
                 mode = EditMode.KEEP_SELECTED,
                 lyricOffsetMs = job.lyricOffsetMs,
+                speed = step.speed,
             )
             lines += mapped.lines.map { line -> line.shiftedBy(step.outputStartUs) }
         }
@@ -644,9 +645,3 @@ return durationMs
         const val CODE_FAILED = "FAILED"
     }
 }
-
-
-
-
-
-

@@ -1,6 +1,7 @@
 package cn.music.audioworkshop.data.parse
 
 import cn.music.audioworkshop.domain.model.FieldMapping
+import cn.music.audioworkshop.domain.model.MediaKind
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -204,5 +205,66 @@ class ParseResponseMatcherTest {
         assertNull("缺失的字段应为 null 而不是崩溃", track.title)
         assertNull(track.artist)
         assertEquals(emptyList<String>(), track.artistAvatarUrls)
+    }
+
+    @Test
+    fun `图文源的多张图片全部收进mediaUrls且首个是audioUrl`() {
+        val track = matcher.match(
+            """
+            {"code":200,"data":{
+              "title":"图集",
+              "url":"https://cdn.x.com/1.jpg",
+              "list":[
+                {"img":"https://cdn.x.com/2.png"},
+                {"img":"https://cdn.x.com/3.webp"}
+              ]
+            }}
+            """.trimIndent(),
+        )
+
+        assertEquals(MediaKind.IMAGE, track.mediaKind)
+        assertEquals("https://cdn.x.com/1.jpg", track.audioUrl)
+        assertEquals(
+            listOf(
+                "https://cdn.x.com/1.jpg",
+                "https://cdn.x.com/2.png",
+                "https://cdn.x.com/3.webp",
+            ),
+            track.mediaUrls,
+        )
+    }
+
+    @Test
+    fun `音频源只收一个地址不混入封面等图片`() {
+        val track = matcher.match(
+            """
+            {"code":200,"data":{
+              "title":"晴天",
+              "url":"https://music.163.com/song/media/outer/url?id=186016.mp3",
+              "pic":"https://p3.music.126.net/cover.jpg",
+              "avatar":"https://p3.music.126.net/avatar.png"
+            }}
+            """.trimIndent(),
+        )
+
+        assertEquals(MediaKind.AUDIO, track.mediaKind)
+        assertEquals(listOf("https://music.163.com/song/media/outer/url?id=186016.mp3"), track.mediaUrls)
+    }
+
+    @Test
+    fun `图片地址重复时只保留一份`() {
+        val track = matcher.match(
+            """
+            {"code":200,"data":{
+              "url":"https://cdn.x.com/1.jpg",
+              "more":["https://cdn.x.com/1.jpg","https://cdn.x.com/2.jpg"]
+            }}
+            """.trimIndent(),
+        )
+
+        assertEquals(
+            listOf("https://cdn.x.com/1.jpg", "https://cdn.x.com/2.jpg"),
+            track.mediaUrls,
+        )
     }
 }

@@ -14,7 +14,7 @@ typedef struct {
 } QishuiRnnoise;
 
 JNIEXPORT jlong JNICALL
-Java_cn_qishui_tool_media_effect_RnnoiseBridge_nativeCreate(JNIEnv *env, jclass clazz) {
+Java_cn_music_audioworkshop_media_effect_RnnoiseBridge_nativeCreate(JNIEnv *env, jclass clazz) {
     (void) env;
     (void) clazz;
     DenoiseState *state = rnnoise_create(NULL);
@@ -31,7 +31,7 @@ Java_cn_qishui_tool_media_effect_RnnoiseBridge_nativeCreate(JNIEnv *env, jclass 
 }
 
 JNIEXPORT void JNICALL
-Java_cn_qishui_tool_media_effect_RnnoiseBridge_nativeDestroy(JNIEnv *env, jclass clazz, jlong handle) {
+Java_cn_music_audioworkshop_media_effect_RnnoiseBridge_nativeDestroy(JNIEnv *env, jclass clazz, jlong handle) {
     (void) env;
     (void) clazz;
     QishuiRnnoise *owner = (QishuiRnnoise *) (intptr_t) handle;
@@ -48,7 +48,7 @@ Java_cn_qishui_tool_media_effect_RnnoiseBridge_nativeDestroy(JNIEnv *env, jclass
  * 就地处理一段 float，返回末帧语音概率（0..1）。长度会向下取整到整帧。
  */
 JNIEXPORT jfloat JNICALL
-Java_cn_qishui_tool_media_effect_RnnoiseBridge_nativeProcess(
+Java_cn_music_audioworkshop_media_effect_RnnoiseBridge_nativeProcess(
         JNIEnv *env,
         jclass clazz,
         jlong handle,
@@ -82,7 +82,7 @@ Java_cn_qishui_tool_media_effect_RnnoiseBridge_nativeProcess(
 }
 
 JNIEXPORT jint JNICALL
-Java_cn_qishui_tool_media_effect_RnnoiseBridge_nativeFrameSize(JNIEnv *env, jclass clazz) {
+Java_cn_music_audioworkshop_media_effect_RnnoiseBridge_nativeFrameSize(JNIEnv *env, jclass clazz) {
     (void) env;
     (void) clazz;
     return (jint) rnnoise_get_frame_size();

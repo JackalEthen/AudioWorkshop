@@ -14,10 +14,12 @@ import java.util.Locale
  * 厂商组件刷爆，实测 16MB 也留不住关键那几行，还要靠 timing 碰运气。
  * 音源一次复现很慢（日志滚没了就得让用户再点一次），所以写文件。
  *
- * 位置：`filesDir/lxsource.log`。一行一条，带时间戳。
- * 只在 debug 包保留，release 不写盘。
- */
-object SourceLog {
+* 位置：`filesDir/lxsource.log`。一行一条，带时间戳。
+     *
+     * 只有 debug 包写盘。release 只走 logcat —— 日志里有歌名、localPath
+     * 和播放直链，落到 filesDir 会被 allowBackup 一起备份出去。
+     */
+    object SourceLog {
 
     private const val FILE_NAME = "lxsource.log"
     private const val MAX_BYTES = 512 * 1024
@@ -35,6 +37,16 @@ object SourceLog {
             file = File(dir, FILE_NAME)
             formatter = SimpleDateFormat("HH:mm:ss.SSS", Locale.getDefault())
         }
+    }
+
+    /** 关闭落盘并删掉已写的文件。release 包在 [cn.music.audioworkshop.QishuiApplication] 里调。 */
+    fun disableFileLog(context: Context) {
+        val stale = File(context.applicationContext.filesDir, FILE_NAME)
+        synchronized(lock) {
+            file = null
+            formatter = null
+        }
+        runCatching { if (stale.isFile) stale.delete() }
     }
 
     fun i(tag: String, message: String) {
@@ -65,6 +77,7 @@ object SourceLog {
         })
     }
 
-    /** 供 adb pull 之后阅读。 */
-    fun path(context: Context): String = File(context.applicationContext.filesDir, FILE_NAME).absolutePath
+    /** 供 adb pull 之后阅读。release 包没有落盘文件，返回 null。 */
+    fun path(context: Context): String? =
+        synchronized(lock) { file?.absolutePath ?: File(context.applicationContext.filesDir, FILE_NAME).takeIf { it.isFile }?.absolutePath }
 }

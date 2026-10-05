@@ -147,7 +147,6 @@ class StorageDownloadTargetResolver(
         val root = DocumentFile.fromTreeUri(applicationContext, Uri.parse(treeUri)) ?: return false
         // 同名已存在就直接失败，让上层换个名字（uniqueTarget 已经负责加序号）
         runCatching { root.findFile(final.fileName) }.getOrNull()?.let {
-            android.util.Log.i("QishuiDiag", "saf SKIP exists name=${final.fileName}")
             return false
         }
         val created = root.createFile("audio/*", final.fileName) ?: return false
@@ -158,10 +157,6 @@ class StorageDownloadTargetResolver(
             // createFile 已经把真实 URI 给到手了，之前白白丢掉，导致后面只能回头去 SAF 里
             // 查这个文件 —— 而那次查询必抛 UnsupportedOperationException（见 findDocumentUri）。
             createdDocumentCache[createdKey(treeUri, final.fileName)] = created.uri.toString()
-            android.util.Log.i(
-                "QishuiDiag",
-                "saf WROTE root=$treeUri name=${final.fileName} bytes=${partFile.length()}",
-            )
             partFile.delete()
             true
         } catch (error: Exception) {
