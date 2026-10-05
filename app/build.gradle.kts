@@ -6,12 +6,12 @@ plugins {
 }
 
 android {
-    namespace = "cn.qishui.tool"
+    namespace = "cn.music.audioworkshop"
     compileSdk = 36
     ndkVersion = "28.2.13676358"
 
     defaultConfig {
-        applicationId = "cn.qishui.tool"
+        applicationId = "cn.music.audioworkshop"
         minSdk = 26
         targetSdk = 36
         versionCode = 1
@@ -26,6 +26,16 @@ android {
     packaging {
         jniLibs {
             useLegacyPackaging = false
+            // 关键：跳过 stripDebugSymbols。
+            // libmp3lame_jni 里的 JNI 入口（StretchBridge / LoudnessBridge）只能被
+            // Java 通过 dlsym 找到，没有任何 C++ 侧引用，strip 会把它们当无用符号删掉，
+            // 结果是运行时 UnsatisfiedLinkError —— 而编译、链接、APK 打包全都正常，
+            // 只有真机上才炸。已实测：strip 前 10336264 字节含符号，
+            // strip 后 6332080 字节符号全丢。
+            // ponytail: so 体积增加约 40%，换 JNI 一定可用。
+            // 真要减体积，应在 CMake 里加 version-script 精确导出 JNI 符号，
+            // 而不是整体关掉 strip —— 那是发布前的体积优化，不影响功能。
+            keepDebugSymbols += "**/libmp3lame_jni.so"
         }
     }
 
@@ -47,6 +57,15 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    testOptions {
+        unitTests {
+            // android.util.Log 在 JVM 单测里没有实现，不开这个会直接抛
+            // "Method i in android.util.Log not mocked"。导出/发布链路里有正常的
+            // 诊断日志，不开这个就没法对它们写单测。
+            isReturnDefaultValues = true
+        }
     }
 
     kotlinOptions {
@@ -89,3 +108,4 @@ dependencies {
     testImplementation(libs.junit)
     testRuntimeOnly(libs.json)
 }
+

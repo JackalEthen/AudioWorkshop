@@ -81,6 +81,10 @@ target_compile_options(mp3lame_jni PRIVATE
 )
 
 target_link_options(mp3lame_jni PRIVATE
-    "-Wl,-z,max-page-size=16384"
-    "-Wl,--gc-sections"
-)
+      "-Wl,-z,max-page-size=16384"
+      "-Wl,--gc-sections"
+  )
+
+  # __android_log_print 在 liblog 里
+  find_library(log-lib log)
+  target_link_libraries(mp3lame_jni PRIVATE ${log-lib})
