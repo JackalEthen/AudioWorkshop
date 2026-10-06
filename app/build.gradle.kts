@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -5,10 +7,30 @@ plugins {
     alias(libs.plugins.kotlin.kapt)
 }
 
+// 签名口令只从 local.properties 读，不写进本文件 —— 它会进 git。
+// 没配就退化成未签名的 release（assembleRelease 产出 unsigned apk，不影响 CI 编译）。
+val releaseStoreFile: String? = rootProject.file("local.properties")
+    .takeIf { it.isFile }
+    ?.let { file -> Properties().apply { file.inputStream().use { load(it) } }.getProperty("RELEASE_STORE_FILE") }
+
 android {
     namespace = "cn.music.audioworkshop"
     compileSdk = 36
     ndkVersion = "28.2.13676358"
+
+    signingConfigs {
+        if (releaseStoreFile != null) {
+            create("release") {
+                val props = Properties().apply {
+                    rootProject.file("local.properties").inputStream().use { load(it) }
+                }
+                storeFile = file(releaseStoreFile)
+                storePassword = props.getProperty("RELEASE_STORE_PASSWORD")
+                keyAlias = props.getProperty("RELEASE_KEY_ALIAS")
+                keyPassword = props.getProperty("RELEASE_KEY_PASSWORD")
+            }
+        }
+    }
 
     defaultConfig {
         applicationId = "cn.music.audioworkshop"
@@ -19,7 +41,11 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         ndk {
-            abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")
+            // 可用 -PqishuiAbis=arm64-v8a 覆盖，用来出单 ABI 的包（体积约为全量包的三分之一）。
+            abiFilters += (providers.gradleProperty("qishuiAbis").orNull ?: "arm64-v8a,armeabi-v7a,x86_64")
+                .split(",")
+                .map(String::trim)
+                .filter(String::isNotEmpty)
         }
     }
 
@@ -51,6 +77,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.findByName("release")
         }
     }
 
